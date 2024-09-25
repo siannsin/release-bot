@@ -8,14 +8,31 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
+from models import ChatSettings
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+
+db_url = os.environ.get('DATABASE_URI', 'sqlite:///data/db.sqlite')
+engine = create_engine(db_url, echo=True)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
+
+    with Session(engine) as session:
+        chat_settings = session.get(ChatSettings, user.id)
+        if not chat_settings:
+            chat_settings = ChatSettings(
+                id=user.id,
+                lang=user.language_code,
+            )
+            session.add(chat_settings)
+            session.commit()
+
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),

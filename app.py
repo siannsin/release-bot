@@ -1,6 +1,11 @@
 from flask import Flask
 
+from database import init_database
+
 app = Flask(__name__)
+db = init_database(app)
+
+import models
 
 
 @app.route('/')
