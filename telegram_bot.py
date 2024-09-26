@@ -67,12 +67,13 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with Session(engine) as session:
         repo_obj = session.get(Repo, repo.id)
         if not repo_obj:
+            release = repo.get_latest_release()
             repo_obj = Repo(
                 id=repo.id,
                 full_name=repo.full_name,
                 link=repo.html_url,
-                current_tag=repo.get_latest_release().tag_name,
-                current_release_id=repo.get_latest_release().id,
+                current_tag=release.tag_name,
+                current_release_id=release.id,
             )
             session.add(repo_obj)
             session.commit()
