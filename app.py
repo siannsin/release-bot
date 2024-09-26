@@ -1,9 +1,15 @@
+import asyncio
+import os
+
 import github
+import telegram
 from flask import Flask
 from flask_apscheduler import APScheduler
 from github import Github
 
 from database import init_database
+
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 app = Flask(__name__)
 app.logger.setLevel('INFO')
@@ -28,9 +34,24 @@ def poll_github():
                 print("Github Exception in poll_github", e)
                 continue
 
-            if repo_obj.current_release_id != repo.get_latest_release().id:
-                repo_obj.current_release_id = repo.get_latest_release().id
+            release = repo.get_latest_release()
+            if repo_obj.current_release_id != release.id:
+                repo_obj.current_release_id = release.id
+                repo_obj.current_tag = release.tag_name
                 db.session.commit()
+
+                message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                           f"<b>{release.title}</b> "
+                           f"<a href='{release.html_url}'>{release.tag_name}</a>"
+                           f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                           f"<code>{release.body}</code>")
+
+                for chat in repo_obj.chats:
+                    bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)    # TODO: Use single bot instance
+                    asyncio.run(bot.send_message(chat_id=chat.id,
+                                                 text=message,
+                                                 parse_mode='HTML',
+                                                 disable_web_page_preview=True))
 
 
 @app.route('/')
