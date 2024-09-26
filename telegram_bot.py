@@ -26,23 +26,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
 
     with Session(engine) as session:
-        chat_settings = session.get(Chat, user.id)
-        if not chat_settings:
-            chat_settings = Chat(
+        chat = session.get(Chat, user.id)
+        if not chat:
+            chat = Chat(
                 id=user.id,
                 lang=user.language_code,
             )
-            session.add(chat_settings)
+            session.add(chat)
             session.commit()
 
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),
     )
-
-    with Session(engine) as session:
-        chat_settings = session.get(Chat, user.id)
-        print(chat_settings.repos)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
