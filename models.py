@@ -18,5 +18,5 @@ class Repo(db.Model):
     full_name = db.Column(db.String)
     link = db.Column(db.String)
     current_tag = db.Column(db.String)
-    current_release_id = db.Column(db.String)
+    current_release_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=aware_utcnow)
