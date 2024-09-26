@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from github import Github
 
-from models import ChatSettings
+from models import ChatSettings, Repo
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
@@ -56,13 +56,34 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Sorry, I can't find that repo.")
         return
 
-    await update.message.reply_html(
-        f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
-        link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                # is_disabled=True,
-                                                prefer_small_media=True,
-                                                ),
-    )
+    with Session(engine) as session:
+        repo_obj = session.get(Repo, repo.id)
+        if repo_obj:
+            await update.message.reply_html(
+                f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
+                link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                        is_disabled=True,
+                                                        # prefer_small_media=True,
+                                                        ),
+            )
+        else:
+            repo_obj = Repo(
+                id=repo.id,
+                full_name=repo.full_name,
+                link=repo.html_url,
+                current_tag=repo.get_latest_release().tag_name,
+                current_release_id=repo.get_latest_release().id,
+            )
+            session.add(repo_obj)
+            session.commit()
+
+            await update.message.reply_html(
+                f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
+                link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                        # is_disabled=True,
+                                                        prefer_small_media=True,
+                                                        ),
+            )
 
 
 def run_telegram_bot() -> None:
