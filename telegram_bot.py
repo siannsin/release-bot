@@ -52,6 +52,22 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text("Help!")
 
 
+async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /list is issued."""
+    user = update.effective_user
+
+    with Session(engine) as session:
+        text = "Your subscriptions:\n"
+        chat = get_or_create_chat(session, user)
+        for i, repo in enumerate(chat.repos):
+            text += f"{i+1}. <b><a href='{repo.link}'>{repo.full_name}</a></b>\n"
+
+    await update.message.reply_html(
+        text,
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
+    )
+
+
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add GitHub repo"""
     user = update.effective_user
@@ -108,6 +124,7 @@ def run_telegram_bot() -> None:
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("list", list_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))
