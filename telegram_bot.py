@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from github import Github
 
-from models import ChatSettings, Repo
+from models import Chat, Repo
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
@@ -26,9 +26,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
 
     with Session(engine) as session:
-        chat_settings = session.get(ChatSettings, user.id)
+        chat_settings = session.get(Chat, user.id)
         if not chat_settings:
-            chat_settings = ChatSettings(
+            chat_settings = Chat(
                 id=user.id,
                 lang=user.language_code,
             )
@@ -39,6 +39,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),
     )
+
+    with Session(engine) as session:
+        chat_settings = session.get(Chat, user.id)
+        print(chat_settings.repos)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
