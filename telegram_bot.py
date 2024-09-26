@@ -21,19 +21,25 @@ db_url = os.environ.get('DATABASE_URI', 'sqlite:///data/db.sqlite')
 engine = create_engine(db_url, echo=True)
 
 
+def get_or_create_chat(session, telegram_user):
+    chat = session.get(Chat, telegram_user.id)
+    if not chat:
+        chat = Chat(
+            id=telegram_user.id,
+            lang=telegram_user.language_code,
+        )
+        session.add(chat)
+        session.commit()
+
+    return chat
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
 
     with Session(engine) as session:
-        chat = session.get(Chat, user.id)
-        if not chat:
-            chat = Chat(
-                id=user.id,
-                lang=user.language_code,
-            )
-            session.add(chat)
-            session.commit()
+        get_or_create_chat(session, user)
 
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!",
@@ -48,7 +54,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add GitHub repo"""
+    user = update.effective_user
     repo_name = update.message.text
+
     g = Github()
     try:
         repo = g.get_repo(repo_name)
@@ -58,15 +66,7 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     with Session(engine) as session:
         repo_obj = session.get(Repo, repo.id)
-        if repo_obj:
-            await update.message.reply_html(
-                f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
-                link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                        is_disabled=True,
-                                                        # prefer_small_media=True,
-                                                        ),
-            )
-        else:
+        if not repo_obj:
             repo_obj = Repo(
                 id=repo.id,
                 full_name=repo.full_name,
@@ -75,6 +75,19 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 current_release_id=repo.get_latest_release().id,
             )
             session.add(repo_obj)
+            session.commit()
+
+        chat = get_or_create_chat(session, user)
+        if chat in repo_obj.chats:
+            await update.message.reply_html(
+                f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
+                link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                        is_disabled=True,
+                                                        # prefer_small_media=True,
+                                                        ),
+            )
+        else:
+            repo_obj.chats.append(chat)
             session.commit()
 
             await update.message.reply_html(
