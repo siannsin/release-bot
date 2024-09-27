@@ -39,16 +39,16 @@ def get_or_create_chat(session, telegram_user):
     return chat
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
 
     with Session(engine) as session:
         get_or_create_chat(session, user)
 
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
-        reply_markup=ForceReply(selective=True),
+    await update.message.reply_text(
+        "Send a message containing repo for subscribing in one of the following formats: "
+        "owner/repo, https://github.com/owner/repo"
     )
 
 
@@ -186,7 +186,7 @@ def run_telegram_bot() -> None:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
     application.add_handler(CommandHandler("editlist", edit_list_command))
