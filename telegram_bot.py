@@ -2,9 +2,10 @@ import os
 import re
 
 import github
-from telegram import ForceReply, Update, LinkPreviewOptions
+from telegram import ForceReply, Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -70,6 +71,53 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         text,
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
+
+
+async def edit_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /editlist is issued."""
+    user = update.effective_user
+
+    keyboard = []
+    with Session(engine) as session:
+        chat = get_or_create_chat(session, user)
+        for i, repo in enumerate(chat.repos):
+            repo_name = repo.full_name.split('/')[1]
+            keyboard.append([InlineKeyboardButton(repo_name, url=repo.link),
+                             InlineKeyboardButton(repo.current_tag, url=f"{repo.link}/releases/{repo.current_tag}"),
+                             InlineKeyboardButton("🗑️", callback_data=repo.id)])
+
+    keyboard.append([InlineKeyboardButton("️Hide", callback_data="hide")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text("Here's all your added repos with their releases:", reply_markup=reply_markup)
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    await query.answer()
+
+    if query.data == 'hide':
+        await query.delete_message()
+    else:
+        with Session(engine) as session:
+            chat = get_or_create_chat(session, user)
+            repo_obj = session.get(Repo, query.data)
+            if repo_obj:
+                chat.repos.remove(repo_obj)
+                # TODO: Use cascade
+                if not repo_obj.chats:
+                    session.delete(repo_obj)
+                session.commit()
+
+                reply_message = f"Deleted repo: {repo_obj.full_name}"
+            else:
+                reply_message = "Error: Repo not founded."
+
+        await query.edit_message_text(text=reply_message)
 
 
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -141,7 +189,10 @@ def run_telegram_bot() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
+    application.add_handler(CommandHandler("editlist", edit_list_command))
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+
+    application.add_handler(CallbackQueryHandler(button))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))
