@@ -11,9 +11,9 @@ from telegram.ext import (
 )
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from github import Github
 
 from models import Chat, Repo
+from app import github_obj
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
@@ -73,9 +73,8 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     repo_name = update.message.text
 
-    g = Github()
     try:
-        repo = g.get_repo(repo_name)
+        repo = github_obj.get_repo(repo_name)
     except github.GithubException as e:
         await update.message.reply_text("Sorry, I can't find that repo.")
         return
