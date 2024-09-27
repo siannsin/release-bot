@@ -55,10 +55,16 @@ def poll_github():
 
                 for chat in repo_obj.chats:
                     bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)    # TODO: Use single bot instance
-                    asyncio.run(bot.send_message(chat_id=chat.id,
-                                                 text=message,
-                                                 parse_mode='HTML',
-                                                 disable_web_page_preview=True))
+                    try:
+                        asyncio.run(bot.send_message(chat_id=chat.id,
+                                                     text=message,
+                                                     parse_mode='HTML',
+                                                     disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        app.logger.info('Bot was blocked by the user')
+                        # TODO: Delete empty repos
+                        db.session.delete(chat)
+                        db.session.commit()
 
 
 @app.route('/')
