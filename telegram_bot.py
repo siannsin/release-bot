@@ -1,4 +1,5 @@
 import os
+import re
 
 import github
 from telegram import ForceReply, Update, LinkPreviewOptions
@@ -19,6 +20,9 @@ TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 db_url = os.environ.get('DATABASE_URI', 'sqlite:///data/db.sqlite')
 engine = create_engine(db_url, echo=True)
+
+link_pattern = re.compile("https://github.com[:/](.+[:/].+)")
+direct_pattern = re.compile(".+/.+")
 
 
 def get_or_create_chat(session, telegram_user):
@@ -71,7 +75,15 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add GitHub repo"""
     user = update.effective_user
-    repo_name = update.message.text
+
+    link_groups = link_pattern.search(update.message.text)
+    if link_groups:
+        repo_name = link_groups.group(1)
+    elif direct_pattern.search(update.message.text):
+        repo_name = update.message.text
+    else:
+        await update.message.reply_text("Error: Invalid repo.")
+        return
 
     try:
         repo = github_obj.get_repo(repo_name)
