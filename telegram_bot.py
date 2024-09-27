@@ -190,7 +190,7 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
-    await start(update, context)
+    await start_command(update, context)
 
 
 def run_telegram_bot() -> None:
