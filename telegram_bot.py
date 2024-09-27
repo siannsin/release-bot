@@ -14,7 +14,7 @@ from telegram.ext import (
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models import Chat, Repo
+from models import Chat, Repo, ChatRepo
 from app import github_obj
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -120,6 +120,19 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.edit_message_text(text=reply_message)
 
 
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /stats is issued."""
+    with Session(engine) as session:
+        repo_count = session.query(Repo).count()
+        user_count = session.query(Chat).count()
+        subscription_count = session.query(ChatRepo).count()
+
+        # text = f"I have to update {} releases for {} repos via {} subscriptions added by {} users."
+        text = f"I have to update {repo_count} repos via {subscription_count} subscriptions added by {user_count} users."
+
+    await update.message.reply_text(text)
+
+
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add GitHub repo"""
     user = update.effective_user
@@ -190,6 +203,7 @@ def run_telegram_bot() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
     application.add_handler(CommandHandler("editlist", edit_list_command))
+    application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
 
     application.add_handler(CallbackQueryHandler(button))
