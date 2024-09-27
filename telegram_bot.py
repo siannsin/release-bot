@@ -86,7 +86,7 @@ async def edit_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                              InlineKeyboardButton(repo.current_tag, url=f"{repo.link}/releases/{repo.current_tag}"),
                              InlineKeyboardButton("🗑️", callback_data=repo.id)])
 
-    keyboard.append([InlineKeyboardButton("️Hide", callback_data="hide")])
+    keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text("Here's all your added repos with their releases:", reply_markup=reply_markup)
@@ -100,7 +100,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
     await query.answer()
 
-    if query.data == 'hide':
+    if query.data == 'cancel':
         await query.delete_message()
     else:
         with Session(engine) as session:
