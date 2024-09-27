@@ -116,6 +116,11 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
 
 
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
+    await start(update, context)
+
+
 def run_telegram_bot() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
@@ -125,6 +130,7 @@ def run_telegram_bot() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))
