@@ -41,10 +41,11 @@ def poll_github():
                 db.session.commit()
 
                 message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                           f"<b>{release.title}</b> "
-                           f"<a href='{release.html_url}'>{release.tag_name}</a>"
+                           f"<b>{release.title}</b>"
+                           f" <code>{release.tag_name}</code>"
                            f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                           f"<code>{release.body}</code>")
+                           f"<blockquote>{release.body}</blockquote>"
+                           f"<a href='{release.html_url}'>release note...</a>")
 
                 for chat in repo_obj.chats:
                     bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)    # TODO: Use single bot instance
