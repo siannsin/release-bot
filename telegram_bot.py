@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from models import Chat, Repo, ChatRepo
-from app import app, github_obj
+from app import app, github_obj, __version__
 
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['SQLALCHEMY_ECHO'])
 
@@ -45,6 +45,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(
         "Send a message containing repo for subscribing in one of the following formats: "
         "owner/repo, https://github.com/owner/repo"
+    )
+
+
+async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /about is issued."""
+    user = update.effective_user
+
+    await update.message.reply_text(
+        f"release-bot - a telegram bot for GitHub releases v{__version__}\n"
+        "Source code available at https://github.com/JanisV/release-bot"
     )
 
 
@@ -216,6 +226,7 @@ def run_telegram_bot() -> None:
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
     application.add_handler(CommandHandler("editlist", edit_list_command))

@@ -9,6 +9,8 @@ from github import Github, Auth
 from config import Config
 from database import init_database
 
+__version__ = "0.1.0"
+
 app = Flask(__name__)
 app.config.from_object(Config)
 app.logger.setLevel(app.config['LOG_LEVEL'])
