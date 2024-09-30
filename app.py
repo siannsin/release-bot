@@ -44,7 +44,12 @@ def poll_github():
                 print("Github Exception in poll_github", e)
                 continue
 
-            release = repo.get_latest_release()
+            try:
+                release = repo.get_latest_release()
+            except github.GithubException as e:
+                # Repo has no releases yet
+                continue
+
             if repo_obj.current_release_id != release.id:
                 repo_obj.current_release_id = release.id
                 repo_obj.current_tag = release.tag_name
