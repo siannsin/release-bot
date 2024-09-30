@@ -11,7 +11,7 @@ from database import init_database
 
 app = Flask(__name__)
 app.config.from_object(Config)
-app.logger.setLevel('INFO')
+app.logger.setLevel(app.config['LOG_LEVEL'])
 db = init_database(app)
 
 scheduler = APScheduler()

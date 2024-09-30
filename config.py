@@ -9,3 +9,4 @@ class Config:
     GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URI', f'sqlite:///{basedir}/data/db.sqlite')
     SQLALCHEMY_ECHO = os.environ.get('SQL_DEBUG', '').lower() in ('true', '1', 't')
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
