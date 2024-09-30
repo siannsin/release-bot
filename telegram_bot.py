@@ -82,8 +82,14 @@ async def edit_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         chat = get_or_create_chat(session, user)
         for i, repo in enumerate(chat.repos):
             repo_name = repo.full_name.split('/')[1]
+            if repo.current_tag:
+                repo_current_tag = repo.current_tag
+                repo_current_tag_url = f"{repo.link}/releases/{repo.current_tag}"
+            else:
+                repo_current_tag = "N/A"
+                repo_current_tag_url = f"{repo.link}/releases"
             keyboard.append([InlineKeyboardButton(repo_name, url=repo.link),
-                             InlineKeyboardButton(repo.current_tag, url=f"{repo.link}/releases/{repo.current_tag}"),
+                             InlineKeyboardButton(repo_current_tag, url=repo_current_tag_url),
                              InlineKeyboardButton("🗑️", callback_data=repo.id)])
 
     keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
@@ -155,14 +161,19 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with Session(engine) as session:
         repo_obj = session.get(Repo, repo.id)
         if not repo_obj:
-            release = repo.get_latest_release()
             repo_obj = Repo(
                 id=repo.id,
                 full_name=repo.full_name,
                 link=repo.html_url,
-                current_tag=release.tag_name,
-                current_release_id=release.id,
             )
+            try:
+                release = repo.get_latest_release()
+                repo_obj.current_tag = release.tag_name,
+                repo_obj.current_release_id = release.id,
+            except github.GithubException as e:
+                # Repo has no releases yet
+                pass
+
             session.add(repo_obj)
             session.commit()
 
@@ -179,13 +190,22 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             repo_obj.chats.append(chat)
             session.commit()
 
-            await update.message.reply_html(
-                f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
-                link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                        # is_disabled=True,
-                                                        prefer_small_media=True,
-                                                        ),
-            )
+            if repo_obj.current_release_id:
+                await update.message.reply_html(
+                    f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
+                    link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                            # is_disabled=True,
+                                                            prefer_small_media=True,
+                                                            ),
+                )
+            else:
+                await update.message.reply_html(
+                    f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, but it has not releases",
+                    link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                            # is_disabled=True,
+                                                            prefer_small_media=True,
+                                                            ),
+                )
 
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
