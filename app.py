@@ -66,8 +66,12 @@ def poll_github():
 
 
 @app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
+def index():
+    bot = telegram.Bot(token=app.config['TELEGRAM_BOT_TOKEN'])  # TODO: Use single bot instance
+    bot_me = asyncio.run(bot.getMe())
+    return (f'<a href="https://t.me/{bot_me.username}">{bot_me.first_name}</a> - a telegram bot for GitHub releases.'
+            '<br><br>'
+            'Source code available at <a href="https://github.com/JanisV/release-bot">release-bot</a>')
 
 
 if __name__ == '__main__':
