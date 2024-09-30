@@ -164,8 +164,8 @@ async def message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             try:
                 release = repo.get_latest_release()
-                repo_obj.current_tag = release.tag_name,
-                repo_obj.current_release_id = release.id,
+                repo_obj.current_tag = release.tag_name
+                repo_obj.current_release_id = release.id
             except github.GithubException as e:
                 # Repo has no releases yet
                 pass
