@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 import github
 import telegram
@@ -7,11 +6,11 @@ from flask import Flask
 from flask_apscheduler import APScheduler
 from github import Github, Auth
 
+from config import Config
 from database import init_database
 
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-
 app = Flask(__name__)
+app.config.from_object(Config)
 app.logger.setLevel('INFO')
 db = init_database(app)
 
@@ -21,12 +20,11 @@ scheduler.start()
 
 import models
 
-GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
-if GITHUB_TOKEN:
-    auth = Auth.Token(GITHUB_TOKEN)
-    github_obj = Github(auth=auth)
+if app.config['GITHUB_TOKEN']:
+    auth = Auth.Token(app.config['GITHUB_TOKEN'])
 else:
-    github_obj = Github()
+    auth = None
+github_obj = Github(auth=auth)
 
 
 @scheduler.task('interval', id='poll_github', hours=1)
@@ -54,7 +52,7 @@ def poll_github():
                            f"<a href='{release.html_url}'>release note...</a>")
 
                 for chat in repo_obj.chats:
-                    bot = telegram.Bot(token=TELEGRAM_BOT_TOKEN)    # TODO: Use single bot instance
+                    bot = telegram.Bot(token=app.config['TELEGRAM_BOT_TOKEN'])    # TODO: Use single bot instance
                     try:
                         asyncio.run(bot.send_message(chat_id=chat.id,
                                                      text=message,

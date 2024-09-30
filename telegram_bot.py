@@ -1,8 +1,7 @@
-import os
 import re
 
 import github
-from telegram import ForceReply, Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -15,12 +14,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from models import Chat, Repo, ChatRepo
-from app import github_obj
+from app import app, github_obj
 
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-
-db_url = os.environ.get('DATABASE_URI', 'sqlite:///data/db.sqlite')
-engine = create_engine(db_url, echo=True)
+engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['SQLALCHEMY_ECHO'])
 
 link_pattern = re.compile("https://github.com[:/](.+[:/].+)")
 direct_pattern = re.compile(".+/.+")
@@ -216,7 +212,7 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 def run_telegram_bot() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(app.config['TELEGRAM_BOT_TOKEN']).build()
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start_command))
