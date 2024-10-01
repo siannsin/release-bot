@@ -11,7 +11,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  TEST_TAG: JanisV/release-bot:test
+  TEST_TAG: ghcr.io/JanisV/release-bot:test
   LATEST_TAG: user/app:latest
 
 jobs:
