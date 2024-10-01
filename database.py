@@ -1,7 +1,5 @@
 import sqlite3
 
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from sqlalchemy import Engine, event
 
 
@@ -15,10 +13,3 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.execute("PRAGMA busy_timeout=5000")
         cursor.execute("PRAGMA temp_store=memory")
         cursor.close()
-
-
-def init_database(app):
-    db = SQLAlchemy(app)
-    Migrate(app, db)
-
-    return db

@@ -1,3 +1,5 @@
+__version__ = "0.1.0"
+
 import asyncio
 import threading
 
@@ -6,23 +8,33 @@ import nest_asyncio
 import telegram
 from flask import Flask
 from flask_apscheduler import APScheduler
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 from github import Github, Auth
 
-__version__ = "0.1.0"
-
 from config import Config
-from database import init_database
 
 nest_asyncio.apply()
 
-app = Flask(__name__)
-app.config.from_object(Config)
-app.logger.setLevel(app.config['LOG_LEVEL'])
-db = init_database(app)
-
+db = SQLAlchemy()
+migrate = Migrate()
 scheduler = APScheduler()
-scheduler.init_app(app)
-scheduler.start()
+
+
+def create_app(config_class=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+    app.logger.setLevel(app.config['LOG_LEVEL'])
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+
+    scheduler.init_app(app)
+
+    return app
+
+
+app = create_app()
 
 import models
 
@@ -93,7 +105,8 @@ class TelegramThread(threading.Thread):
 
 telegram_thread = TelegramThread()
 telegram_thread.daemon = True
-telegram_thread.start()
 
-if __name__ == '__main__':
-    app.run()
+
+def run_app():
+    scheduler.start()
+    telegram_thread.start()
