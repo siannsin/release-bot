@@ -109,4 +109,4 @@ telegram_thread.daemon = True
 
 def run_app():
     scheduler.start()
-    telegram_thread.start()
+    # telegram_thread.start()
