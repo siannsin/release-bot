@@ -232,11 +232,8 @@ def run_telegram_bot() -> None:
     application.add_handler(CommandHandler("editlist", edit_list_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
-
-    application.add_handler(CallbackQueryHandler(button))
-
-    # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))
+    application.add_handler(CallbackQueryHandler(button))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)

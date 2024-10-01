@@ -91,9 +91,9 @@ class TelegramThread(threading.Thread):
         run_telegram_bot()
 
 
-flask_thread = TelegramThread()
-flask_thread.daemon = True
-flask_thread.start()
+telegram_thread = TelegramThread()
+telegram_thread.daemon = True
+telegram_thread.start()
 
 if __name__ == '__main__':
     app.run()
