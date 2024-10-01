@@ -5,3 +5,4 @@ alembic~=1.13.1
 SQLAlchemy~=2.0.30
 python-telegram-bot~=21.6
 PyGithub~=2.4.0
+nest_asyncio~=1.6.0
