@@ -1,7 +1,9 @@
 import re
+from itertools import batched
 
 import github
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.constants import InlineKeyboardMarkupLimit
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -98,10 +100,17 @@ async def edit_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                              InlineKeyboardButton(repo_current_tag, url=repo_current_tag_url),
                              InlineKeyboardButton("🗑️", callback_data=repo.id)])
 
-    keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    if keyboard:
+        btn_per_line = len(keyboard[0])
+        for split_keyboard in batched(keyboard, InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER // btn_per_line):
+            split_keyboard_list = list(split_keyboard)
+            split_keyboard_list.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
+            reply_markup = InlineKeyboardMarkup(split_keyboard_list)
 
-    await update.message.reply_text("Here's all your added repos with their releases:", reply_markup=reply_markup)
+            await update.message.reply_text("Here's all your added repos with their releases:",
+                                            reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("You are haven't repos yet.")
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
