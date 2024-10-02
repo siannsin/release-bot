@@ -47,6 +47,9 @@ github_obj = Github(auth=auth)
 from telegram_bot import TelegramBot
 
 telegram_bot = TelegramBot(token=app.config['TELEGRAM_BOT_TOKEN'])
+if not telegram_bot.test_token():
+    app.logger.error('Telegram bot token is invalid')
+    exit()
 
 
 @scheduler.task('interval', id='poll_github', hours=1)

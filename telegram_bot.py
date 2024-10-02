@@ -1,7 +1,9 @@
+import asyncio
 import re
 from itertools import batched
 
 import github
+import telegram
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import InlineKeyboardMarkupLimit
 from telegram.ext import (
@@ -235,6 +237,14 @@ class TelegramBot(object):
     async def send_message(self, *args, **kwargs):
         async with self.application.bot:
             await self.application.bot.send_message(*args, **kwargs)
+
+    def test_token(self):
+        try:
+            asyncio.run(self.get_me())
+        except telegram.error.InvalidToken:
+            return False
+
+        return True
 
     def run_polling(self):
         # Run the bot until the user presses Ctrl-C
