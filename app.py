@@ -1,10 +1,8 @@
 __version__ = "0.1.0"
 
 import asyncio
-import threading
 
 import github
-import nest_asyncio
 import telegram
 from flask import Flask
 from flask_apscheduler import APScheduler
@@ -13,8 +11,6 @@ from flask_sqlalchemy import SQLAlchemy
 from github import Github, Auth
 
 from config import Config
-
-nest_asyncio.apply()
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -102,16 +98,6 @@ async def index():
             'Source code available at <a href="https://github.com/JanisV/release-bot">release-bot</a>')
 
 
-class TelegramThread(threading.Thread):
-    def run(self) -> None:
-        from telegram_bot import run_telegram_bot
-        run_telegram_bot()
-
-
-telegram_thread = TelegramThread()
-telegram_thread.daemon = True
-
-
 def run_app():
     scheduler.start()
-    # telegram_thread.start()
+    telegram_bot.start()

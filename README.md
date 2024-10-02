@@ -54,5 +54,4 @@ Setup env vars and run:
 
     pip3 install -r requirements.txt
     flask db upgrade
-    python ./telegram_bot.py &
     python ./release-bot.py

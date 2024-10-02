@@ -1,5 +1,6 @@
 import asyncio
 import re
+import threading
 from itertools import batched
 
 import github
@@ -41,7 +42,9 @@ def get_or_create_chat(session, telegram_user):
 
 class TelegramBot(object):
     def __init__(self, token):
-        self.application = Application.builder().token(token).build()
+        self._token = token
+
+        self.application = Application.builder().token(self._token).build()
 
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("about", self.about_command))
@@ -246,16 +249,16 @@ class TelegramBot(object):
 
         return True
 
-    def run_polling(self):
-        # Run the bot until the user presses Ctrl-C
-        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+    async def run_polling(self):
+        await self.application.initialize()
+        await self.application.start()
+        await self.application.updater.start_polling()
+        while True:
+            await asyncio.sleep(1)
 
-
-def run_telegram_bot() -> None:
-    """Start the bot."""
-    telegram_bot = TelegramBot(app.config['TELEGRAM_BOT_TOKEN'])
-    telegram_bot.run_polling()
-
-
-if __name__ == '__main__':
-    run_telegram_bot()
+    def start(self):
+        """Start the bot instance in thread"""
+        bot = TelegramBot(token=self._token)
+        thread = threading.Thread(target=asyncio.run, args=(bot.run_polling(),))
+        thread.daemon = True
+        thread.start()
