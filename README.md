@@ -38,6 +38,7 @@ services:
 ```
 
 or docker run:
+
 `docker run -p 5000:5000 -e TELEGRAM_BOT_TOKEN="<telegram_token>" -v /path/to/data:/app/data -d --name release-bot ghcr.io/janisv/release-bot:latest`
 
 ### From source
