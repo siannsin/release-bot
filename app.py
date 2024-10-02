@@ -44,6 +44,10 @@ else:
     auth = None
 github_obj = Github(auth=auth)
 
+from telegram_bot import TelegramBot
+
+telegram_bot = TelegramBot(token=app.config['TELEGRAM_BOT_TOKEN'])
+
 
 @scheduler.task('interval', id='poll_github', hours=1)
 def poll_github():
@@ -75,12 +79,11 @@ def poll_github():
                            f"<a href='{release.html_url}'>release note...</a>")
 
                 for chat in repo_obj.chats:
-                    bot = telegram.Bot(token=app.config['TELEGRAM_BOT_TOKEN'])    # TODO: Use single bot instance
                     try:
-                        asyncio.run(bot.send_message(chat_id=chat.id,
-                                                     text=message,
-                                                     parse_mode='HTML',
-                                                     disable_web_page_preview=True))
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              parse_mode='HTML',
+                                                              disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
                         app.logger.info('Bot was blocked by the user')
                         # TODO: Delete empty repos
@@ -89,9 +92,8 @@ def poll_github():
 
 
 @app.route('/')
-def index():
-    bot = telegram.Bot(token=app.config['TELEGRAM_BOT_TOKEN'])  # TODO: Use single bot instance
-    bot_me = asyncio.run(bot.getMe())
+async def index():
+    bot_me = await telegram_bot.get_me()
     return (f'<a href="https://t.me/{bot_me.username}">{bot_me.first_name}</a> - a telegram bot for GitHub releases.'
             '<br><br>'
             'Source code available at <a href="https://github.com/JanisV/release-bot">release-bot</a>')

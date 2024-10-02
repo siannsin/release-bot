@@ -15,8 +15,8 @@ from telegram.ext import (
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models import Chat, Repo, ChatRepo
 from app import app, github_obj, __version__
+from models import Chat, Repo, ChatRepo
 
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['SQLALCHEMY_ECHO'])
 
@@ -227,6 +227,14 @@ class TelegramBot(object):
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
         await self.start_command(update, context)
+
+    async def get_me(self, *args, **kwargs):
+        async with self.application.bot:
+            return await self.application.bot.getMe(*args, **kwargs)
+
+    async def send_message(self, *args, **kwargs):
+        async with self.application.bot:
+            await self.application.bot.send_message(*args, **kwargs)
 
     def run_polling(self):
         # Run the bot until the user presses Ctrl-C
