@@ -13,11 +13,11 @@ This bot is inspired by [new(releases)](https://newreleases.io/) and [release-bo
 - Only Telegram token requred
 
 ## Commands
-`/start` - show welcome message
-`/about` - information about this bot
-`/list` - show your subscription
-`/editlist` - show and edit your subscription
-`/stats` - show server statistics
+`/start` - show welcome message  
+`/about` - information about this bot  
+`/list` - show your subscription  
+`/editlist` - show and edit your subscription  
+`/stats` - show server statistics  
 
 ## Running it yourself
 
