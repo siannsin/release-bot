@@ -32,20 +32,22 @@ def create_app(config_class=Config):
 
 app = create_app()
 
-import models
-
 if app.config['GITHUB_TOKEN']:
     auth = Auth.Token(app.config['GITHUB_TOKEN'])
 else:
     auth = None
 github_obj = Github(auth=auth)
 
+import models
 from telegram_bot import TelegramBot
 
 telegram_bot = TelegramBot(token=app.config['TELEGRAM_BOT_TOKEN'])
 if not telegram_bot.test_token():
     app.logger.error('Telegram bot token is invalid')
     exit()
+
+scheduler.start()
+telegram_bot.start()
 
 
 @scheduler.task('interval', id='poll_github', hours=1)
@@ -98,6 +100,5 @@ async def index():
             'Source code available at <a href="https://github.com/JanisV/release-bot">release-bot</a>')
 
 
-def run_app():
-    scheduler.start()
-    telegram_bot.start()
+if __name__ == '__main__':
+    app.run()

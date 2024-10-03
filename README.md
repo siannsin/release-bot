@@ -54,4 +54,4 @@ Setup env vars and run:
 
     pip3 install -r requirements.txt
     flask db upgrade
-    python ./release-bot.py
+    flask run -h 0.0.0.0
