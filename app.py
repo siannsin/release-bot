@@ -1,6 +1,7 @@
 __version__ = "0.1.0"
 
 import asyncio
+import re
 
 import github
 import telegram
@@ -9,8 +10,13 @@ from flask_apscheduler import APScheduler
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from github import Github, Auth
+from telegram.constants import MessageLimit
 
 from config import Config
+
+github_extra_html_tags_pattern = re.compile("<p align=\".*\".*>|</p>|<a name=\".*\">|</a>|<picture>.*</picture>|"
+                                            "<sub>|</sub>|<sup>|</sup>|<!--.*-->")
+github_img_html_tag_pattern = re.compile("<img src=\"(.*?)\".*>")
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -72,11 +78,22 @@ def poll_github():
                 repo_obj.current_tag = release.tag_name
                 db.session.commit()
 
+                release_body = release.body
+                release_body = github_extra_html_tags_pattern.sub(
+                    "",
+                    release_body
+                )
+                release_body = github_img_html_tag_pattern.sub(
+                    "\\1",
+                    release_body
+                )
+                release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH]
+
                 message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
                            f"<b>{release.title}</b>"
                            f" <code>{release.tag_name}</code>"
                            f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                           f"<blockquote>{release.body}</blockquote>"
+                           f"<blockquote>{release_body}</blockquote>"
                            f"<a href='{release.html_url}'>release note...</a>")
 
                 for chat in repo_obj.chats:
