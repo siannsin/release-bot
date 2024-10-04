@@ -1,0 +1,55 @@
+name: Bump version and create release
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseType:
+        description: 'What kind of release is this?'
+        required: false
+        default: 'minor'
+        type: choice
+        options:
+          - 'major'
+          - 'minor'
+          - 'patch'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install bump-my-version
+
+      - name: Override release kind on manual
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.releaseType != 'auto' }}
+        run: |
+          echo "::notice::Overriding release type to ${{ github.event.inputs.releaseType }} since this was a manual trigger"
+          echo "RELEASE_KIND=${{ github.event.inputs.releaseType }}" >> $GITHUB_ENV
+
+      - name: Bump version
+        if: ${{ env.RELEASE_KIND != 'no-release' }}
+        shell: bash
+        run: |
+          bump-my-version bump --allow-dirty --verbose "$RELEASE_KIND"
+          echo "TAG_NAME=$(bump-my-version show current_version)" >> $GITHUB_ENV
+          git push --tags
+
+      - name: Create GitHub release
+        if: ${{ env.RELEASE_KIND != 'no-release' }}
+        uses: actions/create-release@v1
+        with:
+          tag-name: ${{ env.TAG_NAME }}
+          release_name: ${{ env.TAG_NAME }}
