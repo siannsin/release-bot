@@ -29,6 +29,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        
+      - name: Bump commit version
+        if: github.event_name == 'push'
+        uses: callowayproject/bump-my-version@master
+        with:
+          args: commit --no-commit
 
       - name: Login to ${{ env.REGISTRY }} registry
         uses: docker/login-action@v3
