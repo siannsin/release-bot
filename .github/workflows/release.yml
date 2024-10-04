@@ -33,4 +33,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.bump.outputs.current-version }}
-          github_token: ${{ secrets.PAT }}  # Use personal access token for trigger next workflows
+          token: ${{ secrets.PAT }}  # Use personal access token for trigger next workflows
