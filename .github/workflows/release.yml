@@ -28,10 +28,9 @@ jobs:
           BUMPVERSION_TAG: "true"
         with:
           args: ${{ inputs.bump-type }} --commit --verbose
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.bump.outputs.current-version }}
-          release_name: ${{ steps.bump.outputs.current-version }}
+          tag_name: v${{ steps.bump.outputs.current-version }}
+          github_token: ${{ secrets.PAT }}  # Use personal access token for trigger next workflows
