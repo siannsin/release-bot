@@ -13,7 +13,6 @@ serialize = [
     "{major}.{minor}.{patch}-{distance_to_latest_tag}",
     "{major}.{minor}.{patch}",
 ]
-optional_value = "final"
 search = "{current_version}"
 replace = "{new_version}"
 regex = false
