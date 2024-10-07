@@ -179,6 +179,14 @@ class TelegramBot(object):
 
         if query.data == 'cancel':
             await query.delete_message()
+        elif query.data == 'unsubscribe_user':
+            with Session(engine) as session:
+                chat = get_or_create_chat(session, user)
+                github_username = chat.github_username
+                chat.github_username = None
+                session.commit()
+
+                await query.edit_message_text(text=f"Unsubscribed from user {github_username}.")
         elif query.data.startswith("subscribe_user-"):
             github_user_id = query.data.split("-", 1)[1]
             try:
@@ -232,8 +240,13 @@ class TelegramBot(object):
         with Session(engine) as session:
             chat = get_or_create_chat(session, user)
             if chat.github_username:
+                keyboard = [[InlineKeyboardButton("Unsubscribe from user", callback_data="unsubscribe_user")],
+                            [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
                 await update.message.reply_text(f"You are already subscribe to the user {chat.github_username}.\n"
-                                                "Unsubscribe now?")
+                                                "Unsubscribe now?",
+                                                reply_markup=reply_markup)
                 return
 
         if not context.args or len(context.args) > 1:
