@@ -123,51 +123,64 @@ class TelegramBot(object):
         else:
             await update.message.reply_text("You are haven't repos yet.")
 
-    async def add_repos(self, user, repos, bot) -> None:
+    async def add_repo(self, user, repo, bot, silent=False) -> None:
         with Session(engine) as session:
-            for repo in repos:
-                repo_obj = session.get(Repo, repo.id)
-                if not repo_obj:
-                    repo_obj = Repo(
-                        id=repo.id,
-                        full_name=repo.full_name,
-                        link=repo.html_url,
+            repo_obj = session.get(Repo, repo.id)
+            if not repo_obj:
+                repo_obj = Repo(
+                    id=repo.id,
+                    full_name=repo.full_name,
+                    link=repo.html_url,
+                )
+                try:
+                    release = repo.get_latest_release()
+                    repo_obj.current_tag = release.tag_name
+                    repo_obj.current_release_id = release.id
+                except github.GithubException as e:
+                    # Repo has no releases yet
+                    pass
+
+                session.add(repo_obj)
+                session.commit()
+
+            chat = get_or_create_chat(session, user)
+            if chat in repo_obj.chats:
+                if not silent:
+                    await bot.send_message(
+                        chat_id=chat.id,
+                        text=f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
+                        parse_mode='HTML',
+                        link_preview_options=LinkPreviewOptions(
+                            url=repo.html_url,
+                            prefer_small_media=True)
                     )
-                    try:
-                        release = repo.get_latest_release()
-                        repo_obj.current_tag = release.tag_name
-                        repo_obj.current_release_id = release.id
-                    except github.GithubException as e:
-                        # Repo has no releases yet
-                        pass
+            else:
+                repo_obj.chats.append(chat)
+                session.commit()
 
-                    session.add(repo_obj)
-                    session.commit()
+                if repo_obj.current_release_id:
+                    await bot.send_message(
+                        chat_id=chat.id,
+                        text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
+                        parse_mode='HTML',
+                        link_preview_options=LinkPreviewOptions(
+                            url=repo.html_url,
+                            prefer_small_media=True)
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id=chat.id,
+                        text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
+                             f"but it has not releases",
+                        parse_mode='HTML',
+                        link_preview_options=LinkPreviewOptions(
+                            url=repo.html_url,
+                            prefer_small_media=True)
+                    )
 
-                chat = get_or_create_chat(session, user)
-                if chat not in repo_obj.chats:
-                    repo_obj.chats.append(chat)
-                    session.commit()
-
-                    if repo_obj.current_release_id:
-                        await bot.send_message(
-                            chat_id=chat.id,
-                            text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
-                            parse_mode='HTML',
-                            link_preview_options=LinkPreviewOptions(
-                                url=repo.html_url,
-                                prefer_small_media=True)
-                        )
-                    else:
-                        await bot.send_message(
-                            chat_id=chat.id,
-                            text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
-                                 f"but it has not releases",
-                            parse_mode='HTML',
-                            link_preview_options=LinkPreviewOptions(
-                                url=repo.html_url,
-                                prefer_small_media=True)
-                        )
+    async def add_repos(self, user, repos, bot) -> None:
+        for repo in repos:
+            await self.add_repo(user, repo, bot, True)
 
     async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
@@ -302,54 +315,7 @@ class TelegramBot(object):
             await update.message.reply_text("Sorry, I can't find that repo.")
             return
 
-        with Session(engine) as session:
-            repo_obj = session.get(Repo, repo.id)
-            if not repo_obj:
-                repo_obj = Repo(
-                    id=repo.id,
-                    full_name=repo.full_name,
-                    link=repo.html_url,
-                )
-                try:
-                    release = repo.get_latest_release()
-                    repo_obj.current_tag = release.tag_name
-                    repo_obj.current_release_id = release.id
-                except github.GithubException as e:
-                    # Repo has no releases yet
-                    pass
-
-                session.add(repo_obj)
-                session.commit()
-
-            chat = get_or_create_chat(session, user)
-            if chat in repo_obj.chats:
-                await update.message.reply_html(
-                    f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
-                    link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                            is_disabled=True,
-                                                            # prefer_small_media=True,
-                                                            ),
-                )
-            else:
-                repo_obj.chats.append(chat)
-                session.commit()
-
-                if repo_obj.current_release_id:
-                    await update.message.reply_html(
-                        f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
-                        link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                                # is_disabled=True,
-                                                                prefer_small_media=True,
-                                                                ),
-                    )
-                else:
-                    await update.message.reply_html(
-                        f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, but it has not releases",
-                        link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                                # is_disabled=True,
-                                                                prefer_small_media=True,
-                                                                ),
-                    )
+        await self.add_repo(user, repo, update.get_bot(), True)
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
