@@ -50,6 +50,7 @@ class TelegramBot(object):
         self.application.add_handler(CommandHandler("about", self.about_command))
         self.application.add_handler(CommandHandler("list", self.list_command))
         self.application.add_handler(CommandHandler("editlist", self.edit_list_command))
+        self.application.add_handler(CommandHandler("starred", self.starred_command))
         self.application.add_handler(CommandHandler("stats", self.stats_command))
         self.application.add_handler(MessageHandler(filters.COMMAND, self.unknown_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message))
@@ -148,6 +149,68 @@ class TelegramBot(object):
                     reply_message = "Error: Repo not founded."
 
             await query.edit_message_text(text=reply_message)
+
+    async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Send a message when the command /starred is issued."""
+        if not context.args or len(context.args) > 1:
+            await update.message.reply_text("Specify a GitHub username in the following format: /starred username")
+            return
+
+        github_user_name = context.args[0]
+        try:
+            github_user = github_obj.get_user(github_user_name)
+        except github.GithubException as e:
+            await update.message.reply_text("Sorry, I can't find that user.")
+            return
+
+        starred = github_user.get_starred()
+        if not starred:
+            await update.message.reply_text(f"User {github_user_name} haven't starred repos.")
+            return
+
+        user = update.effective_user
+
+        with Session(engine) as session:
+            for repo in starred:
+                repo_obj = session.get(Repo, repo.id)
+                if not repo_obj:
+                    repo_obj = Repo(
+                        id=repo.id,
+                        full_name=repo.full_name,
+                        link=repo.html_url,
+                    )
+                    try:
+                        release = repo.get_latest_release()
+                        repo_obj.current_tag = release.tag_name
+                        repo_obj.current_release_id = release.id
+                    except github.GithubException as e:
+                        # Repo has no releases yet
+                        pass
+
+                    session.add(repo_obj)
+                    session.commit()
+
+                chat = get_or_create_chat(session, user)
+                if chat not in repo_obj.chats:
+                    repo_obj.chats.append(chat)
+                    session.commit()
+
+                    if repo_obj.current_release_id:
+                        await update.message.reply_html(
+                            f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
+                            link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                                    # is_disabled=True,
+                                                                    prefer_small_media=True,
+                                                                    ),
+                        )
+                    else:
+                        await update.message.reply_html(
+                            f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, but it has not releases",
+                            link_preview_options=LinkPreviewOptions(url=repo.html_url,
+                                                                    # is_disabled=True,
+                                                                    prefer_small_media=True,
+                                                                    ),
+                        )
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /stats is issued."""
