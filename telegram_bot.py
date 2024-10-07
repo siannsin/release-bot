@@ -123,7 +123,7 @@ class TelegramBot(object):
         else:
             await update.message.reply_text("You are haven't repos yet.")
 
-    async def __add_repos(self, user, repos, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def add_repos(self, user, repos, bot) -> None:
         with Session(engine) as session:
             for repo in repos:
                 repo_obj = session.get(Repo, repo.id)
@@ -150,7 +150,7 @@ class TelegramBot(object):
                     session.commit()
 
                     if repo_obj.current_release_id:
-                        await update.callback_query.get_bot().send_message(
+                        await bot.send_message(
                             chat_id=chat.id,
                             text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
                             parse_mode='HTML',
@@ -159,7 +159,7 @@ class TelegramBot(object):
                                 prefer_small_media=True)
                         )
                     else:
-                        await update.callback_query.get_bot().send_message(
+                        await bot.send_message(
                             chat_id=chat.id,
                             text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
                                  f"but it has not releases",
@@ -203,7 +203,7 @@ class TelegramBot(object):
                 await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
 
             starred = github_user.get_starred()
-            await self.__add_repos(user, starred, update, context)
+            await self.add_repos(user, starred, update.callback_query.get_bot())
         elif query.data.startswith("add_repos-"):
             github_user_id = query.data.split("-", 1)[1]
             try:
@@ -213,7 +213,7 @@ class TelegramBot(object):
                 return
 
             starred = github_user.get_starred()
-            await self.__add_repos(user, starred, update, context)
+            await self.add_repos(user, starred, update.callback_query.get_bot())
 
             await query.delete_message()
         else:

@@ -113,6 +113,26 @@ def poll_github():
                         db.session.commit()
 
 
+@scheduler.task('interval', id='poll_github_user', days=1)
+def poll_github_user():
+    with (scheduler.app.app_context()):
+        for chat in models.Chat.query.filter(models.Chat.github_username.is_not(None)).all():
+            try:
+                github_user = github_obj.get_user(chat.github_username)
+            except github.GithubException as e:
+                app.logger.error(f"Can't found user '{chat.github_username}'")
+                continue
+
+            starred = github_user.get_starred()
+            try:
+                asyncio.run(telegram_bot.add_repos(chat, starred, telegram_bot))
+            except telegram.error.Forbidden as e:
+                app.logger.info('Bot was blocked by the user')
+                # TODO: Delete empty repos
+                db.session.delete(chat)
+                db.session.commit()
+
+
 @app.route('/')
 async def index():
     bot_me = await telegram_bot.get_me()
