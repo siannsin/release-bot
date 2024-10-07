@@ -123,55 +123,9 @@ class TelegramBot(object):
         else:
             await update.message.reply_text("You are haven't repos yet.")
 
-    async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        user = update.effective_user
-        query = update.callback_query
-
-        # CallbackQueries need to be answered, even if no notification to the user is needed
-        # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-        await query.answer()
-
-        if query.data == 'cancel':
-            await query.delete_message()
-        else:
-            with Session(engine) as session:
-                chat = get_or_create_chat(session, user)
-                repo_obj = session.get(Repo, query.data)
-                if repo_obj:
-                    chat.repos.remove(repo_obj)
-                    # TODO: Use cascade
-                    if not repo_obj.chats:
-                        session.delete(repo_obj)
-                    session.commit()
-
-                    reply_message = f"Deleted repo: {repo_obj.full_name}"
-                else:
-                    reply_message = "Error: Repo not founded."
-
-            await query.edit_message_text(text=reply_message)
-
-    async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Send a message when the command /starred is issued."""
-        if not context.args or len(context.args) > 1:
-            await update.message.reply_text("Specify a GitHub username in the following format: /starred username")
-            return
-
-        github_user_name = context.args[0]
-        try:
-            github_user = github_obj.get_user(github_user_name)
-        except github.GithubException as e:
-            await update.message.reply_text("Sorry, I can't find that user.")
-            return
-
-        starred = github_user.get_starred()
-        if not starred:
-            await update.message.reply_text(f"User {github_user_name} haven't starred repos.")
-            return
-
-        user = update.effective_user
-
+    async def __add_repos(self, user, repos, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         with Session(engine) as session:
-            for repo in starred:
+            for repo in repos:
                 repo_obj = session.get(Repo, repo.id)
                 if not repo_obj:
                     repo_obj = Repo(
@@ -196,21 +150,113 @@ class TelegramBot(object):
                     session.commit()
 
                     if repo_obj.current_release_id:
-                        await update.message.reply_html(
-                            f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
-                            link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                                    # is_disabled=True,
-                                                                    prefer_small_media=True,
-                                                                    ),
+                        await update.callback_query.get_bot().send_message(
+                            chat_id=chat.id,
+                            text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
+                            parse_mode='HTML',
+                            link_preview_options=LinkPreviewOptions(
+                                url=repo.html_url,
+                                prefer_small_media=True)
                         )
                     else:
-                        await update.message.reply_html(
-                            f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, but it has not releases",
-                            link_preview_options=LinkPreviewOptions(url=repo.html_url,
-                                                                    # is_disabled=True,
-                                                                    prefer_small_media=True,
-                                                                    ),
+                        await update.callback_query.get_bot().send_message(
+                            chat_id=chat.id,
+                            text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
+                                 f"but it has not releases",
+                            parse_mode='HTML',
+                            link_preview_options=LinkPreviewOptions(
+                                url=repo.html_url,
+                                prefer_small_media=True)
                         )
+
+    async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user = update.effective_user
+        query = update.callback_query
+
+        # CallbackQueries need to be answered, even if no notification to the user is needed
+        # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+        await query.answer()
+
+        if query.data == 'cancel':
+            await query.delete_message()
+        elif query.data.startswith("subscribe_user-"):
+            github_user_id = query.data.split("-", 1)[1]
+            try:
+                github_user = github_obj.get_user_by_id(int(github_user_id))
+            except github.GithubException as e:
+                await update.message.reply_text("Error: User not founded.")
+                return
+
+            with Session(engine) as session:
+                chat = get_or_create_chat(session, user)
+                chat.github_username = github_user.login
+                session.commit()
+
+                await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
+
+            starred = github_user.get_starred()
+            await self.__add_repos(user, starred, update, context)
+        elif query.data.startswith("add_repos-"):
+            github_user_id = query.data.split("-", 1)[1]
+            try:
+                github_user = github_obj.get_user_by_id(int(github_user_id))
+            except github.GithubException as e:
+                await update.message.reply_text("Error: User not founded.")
+                return
+
+            starred = github_user.get_starred()
+            await self.__add_repos(user, starred, update, context)
+
+            await query.delete_message()
+        else:
+            with Session(engine) as session:
+                chat = get_or_create_chat(session, user)
+                repo_obj = session.get(Repo, query.data)
+                if repo_obj:
+                    chat.repos.remove(repo_obj)
+                    # TODO: Use cascade
+                    if not repo_obj.chats:
+                        session.delete(repo_obj)
+                    session.commit()
+
+                    reply_message = f"Deleted repo: {repo_obj.full_name}"
+                else:
+                    reply_message = "Error: Repo not founded."
+
+            await query.edit_message_text(text=reply_message)
+
+    async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Send a message when the command /starred is issued."""
+        user = update.effective_user
+
+        with Session(engine) as session:
+            chat = get_or_create_chat(session, user)
+            if chat.github_username:
+                await update.message.reply_text(f"You are already subscribe to the user {chat.github_username}.\n"
+                                                "Unsubscribe now?")
+                return
+
+        if not context.args or len(context.args) > 1:
+            await update.message.reply_text("Specify a GitHub username in the following format: /starred username")
+            return
+
+        github_user_name = context.args[0]
+        try:
+            github_user = github_obj.get_user(github_user_name)
+        except github.GithubException as e:
+            await update.message.reply_text("Sorry, I can't find that user.")
+            return
+
+        starred = github_user.get_starred()
+
+        keyboard = [[InlineKeyboardButton("Subscribe user", callback_data=f"subscribe_user-{github_user.id}")],
+                    [InlineKeyboardButton("Add user's repos", callback_data=f"add_repos-{github_user.id}")],
+                    [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await update.message.reply_text(f"User {github_user_name} has {starred.totalCount} starred repos. "
+                                        "Subscribe to the user or add user's repos once?",
+                                        reply_markup=reply_markup)
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /stats is issued."""

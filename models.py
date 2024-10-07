@@ -10,6 +10,7 @@ def aware_utcnow():
 class Chat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lang = db.Column(db.String(2), default='en')
+    github_username = db.Column(db.String)
     created_at = db.Column(db.DateTime, default=aware_utcnow)
 
     repos = db.relationship('Repo', secondary='chat_repo', back_populates='chats')
