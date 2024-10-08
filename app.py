@@ -71,13 +71,18 @@ def poll_github():
                 print("Github Exception in poll_github", e)
                 continue
 
+            has_release = False
+            has_tag = False
             try:
                 release = repo.get_latest_release()
+                has_release = True
             except github.GithubException as e:
                 # Repo has no releases yet
-                continue
+                if repo.get_tags().totalCount > 0:
+                    tag = repo.get_tags()[0]
+                    has_tag = True
 
-            if repo_obj.current_release_id != release.id:
+            if has_release and repo_obj.current_release_id != release.id:
                 repo_obj.current_release_id = release.id
                 repo_obj.current_tag = release.tag_name
                 db.session.commit()
@@ -95,10 +100,28 @@ def poll_github():
 
                 message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
                            f"<b>{release.title}</b>"
-                           f" <code>{release.tag_name}</code>"
+                           f" <code>{repo_obj.current_tag}</code>"
                            f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
                            f"<blockquote>{release_body}</blockquote>"
                            f"<a href='{release.html_url}'>release note...</a>")
+
+                for chat in repo_obj.chats:
+                    try:
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              parse_mode='HTML',
+                                                              disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        app.logger.info('Bot was blocked by the user')
+                        # TODO: Delete empty repos
+                        db.session.delete(chat)
+                        db.session.commit()
+            elif has_tag and repo_obj.current_tag != tag.name:
+                repo_obj.current_tag = tag.name
+                db.session.commit()
+
+                message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                           f"<code>{repo_obj.current_tag}</code>")
 
                 for chat in repo_obj.chats:
                     try:
