@@ -314,7 +314,7 @@ class TelegramBot(object):
             await update.message.reply_text("Sorry, I can't find that repo.")
             return
 
-        await self.add_repo(user, repo, update.get_bot(), True)
+        await self.add_repo(user, repo, update.get_bot(), False)
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
