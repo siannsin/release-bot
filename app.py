@@ -123,9 +123,8 @@ def poll_github_user():
                 app.logger.error(f"Can't found user '{chat.github_username}'")
                 continue
 
-            starred = github_user.get_starred()
             try:
-                asyncio.run(telegram_bot.add_repos(chat, starred, telegram_bot))
+                asyncio.run(telegram_bot.add_starred_repos(chat, github_user, telegram_bot))
             except telegram.error.Forbidden as e:
                 app.logger.info('Bot was blocked by the user')
                 # TODO: Delete empty repos

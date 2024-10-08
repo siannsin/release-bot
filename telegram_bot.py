@@ -178,7 +178,8 @@ class TelegramBot(object):
                             prefer_small_media=True)
                     )
 
-    async def add_repos(self, user, repos, bot) -> None:
+    async def add_starred_repos(self, user, github_user, bot) -> None:
+        repos = github_user.get_starred()
         for repo in repos:
             await self.add_repo(user, repo, bot, True)
 
@@ -215,8 +216,7 @@ class TelegramBot(object):
 
                 await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
 
-            starred = github_user.get_starred()
-            await self.add_repos(user, starred, update.callback_query.get_bot())
+            await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
         elif query.data.startswith("add_repos-"):
             github_user_id = query.data.split("-", 1)[1]
             try:
@@ -225,8 +225,7 @@ class TelegramBot(object):
                 await update.message.reply_text("Error: User not founded.")
                 return
 
-            starred = github_user.get_starred()
-            await self.add_repos(user, starred, update.callback_query.get_bot())
+            await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
 
             await query.delete_message()
         else:
