@@ -10,7 +10,9 @@ from flask_apscheduler import APScheduler
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from github import Github, Auth
-from telegram.constants import MessageLimit
+from telegram.constants import MessageLimit, ParseMode
+# TODO: Use md2tgmd instead telegramify_markdown
+from telegramify_markdown import markdownify
 
 from config import Config
 
@@ -102,20 +104,38 @@ def poll_github():
                     "\\1",
                     release_body
                 )
-                release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH-256]
-
-                message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                           f"<b>{release.title}</b>"
-                           f" <code>{repo_obj.current_tag}</code>"
-                           f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                           f"<blockquote>{release_body}</blockquote>"
-                           f"<a href='{release.html_url}'>release note...</a>")
+                release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]
 
                 for chat in repo_obj.chats:
+                    if chat.release_note_format == "quote":
+                        parse_mode = ParseMode.HTML
+                        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                                   f"<b>{release.title}</b>"
+                                   f" <code>{repo_obj.current_tag}</code>"
+                                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                                   f"<blockquote>{release_body}</blockquote>"
+                                   f"<a href='{release.html_url}'>release note...</a>")
+                    elif chat.release_note_format == "pre":
+                        parse_mode = ParseMode.HTML
+                        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                                   f"<b>{release.title}</b>"
+                                   f" <code>{repo_obj.current_tag}</code>"
+                                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                                   f"<pre>{release_body}</pre>"
+                                   f"<a href='{release.html_url}'>release note...</a>")
+                    else:
+                        parse_mode = ParseMode.MARKDOWN_V2
+                        message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
+                                              f"*{release.title}*"
+                                              f" `{repo_obj.current_tag}`"
+                                              f"{" _pre-release_" if release.prerelease else ""}\n\n"
+                                              f"{release_body + "\n\n" if release_body else ""}"
+                                              f"[release note...]({release.html_url})")
+
                     try:
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
-                                                              parse_mode='HTML',
+                                                              parse_mode=parse_mode,
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
                         app.logger.info('Bot was blocked by the user')
@@ -134,7 +154,7 @@ def poll_github():
                     try:
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
-                                                              parse_mode='HTML',
+                                                              parse_mode=ParseMode.HTML,
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
                         app.logger.info('Bot was blocked by the user')

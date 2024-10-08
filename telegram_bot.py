@@ -51,6 +51,7 @@ class TelegramBot(object):
         self.application.add_handler(CommandHandler("list", self.list_command))
         self.application.add_handler(CommandHandler("editlist", self.edit_list_command))
         self.application.add_handler(CommandHandler("starred", self.starred_command))
+        self.application.add_handler(CommandHandler("settings", self.settings_command))
         self.application.add_handler(CommandHandler("stats", self.stats_command))
         self.application.add_handler(MessageHandler(filters.COMMAND, self.unknown_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message))
@@ -228,6 +229,34 @@ class TelegramBot(object):
             await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
 
             await query.delete_message()
+        elif query.data == "release_note_format":
+            with Session(engine) as session:
+                chat = get_or_create_chat(session, user)
+                keyboard = [[InlineKeyboardButton(f"Quote {"✅" if chat.release_note_format == "quote" else ""}",
+                                                  callback_data="release_note_format-quote"),
+                             InlineKeyboardButton(f"Pre {"✅" if chat.release_note_format == "pre" else ""}",
+                                                  callback_data="release_note_format-pre"),
+                             InlineKeyboardButton(f"Markdown {"✅" if not chat.release_note_format else ""}",
+                                                  callback_data="release_note_format-markdown"), ],
+                            [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+            await query.edit_message_reply_markup(reply_markup)
+        elif query.data.startswith("release_note_format-"):
+            with Session(engine) as session:
+                chat = get_or_create_chat(session, user)
+                if query.data == "release_note_format-quote":
+                    chat.release_note_format = "quote"
+                elif query.data == "release_note_format-pre":
+                    chat.release_note_format = "pre"
+                elif query.data == "release_note_format-markdown":
+                    chat.release_note_format = None
+                else:
+                    await update.message.reply_text("Error: Unknown format.")
+                    return
+                session.commit()
+
+            await query.edit_message_text(text=f"Release note format changed.")
         else:
             with Session(engine) as session:
                 chat = get_or_create_chat(session, user)
@@ -281,6 +310,15 @@ class TelegramBot(object):
 
         await update.message.reply_text(f"User {github_user_name} has {starred.totalCount} starred repos. "
                                         "Subscribe to the user or add user's repos once?",
+                                        reply_markup=reply_markup)
+
+    async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Send a message when the command /settings is issued."""
+        keyboard = [[InlineKeyboardButton("Release note format", callback_data="release_note_format")],
+                    [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await update.message.reply_text(f"Settings",
                                         reply_markup=reply_markup)
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
