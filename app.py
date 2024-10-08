@@ -14,6 +14,8 @@ from telegram.constants import MessageLimit
 
 from config import Config
 
+PROCESS_PRE_RELEASES = False
+
 github_extra_html_tags_pattern = re.compile("<p align=\".*\".*>|</p>|<a name=\".*\">|</a>|<picture>.*</picture>|"
                                             "<sub>|</sub>|<sup>|</sup>|<!--.*-->")
 github_img_html_tag_pattern = re.compile("<img src=\"(.*?)\".*>")
@@ -74,7 +76,11 @@ def poll_github():
             has_release = False
             has_tag = False
             try:
-                release = repo.get_latest_release()
+                if PROCESS_PRE_RELEASES:
+                    if repo.get_releases().totalCount > 0:
+                        release = repo.get_releases()[0]
+                else:
+                    release = repo.get_latest_release()
                 has_release = True
             except github.GithubException as e:
                 # Repo has no releases yet
@@ -96,7 +102,7 @@ def poll_github():
                     "\\1",
                     release_body
                 )
-                release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH]
+                release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH-256]
 
                 message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
                            f"<b>{release.title}</b>"
@@ -120,6 +126,7 @@ def poll_github():
                 repo_obj.current_tag = tag.name
                 db.session.commit()
 
+                # TODO: Use tag.message as release_body text
                 message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
                            f"<code>{repo_obj.current_tag}</code>")
 
