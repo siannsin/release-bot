@@ -1,10 +1,12 @@
 import asyncio
+import json
 import re
 import threading
 from itertools import batched
 
 import github
 import telegram
+import urllib3
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import InlineKeyboardMarkupLimit
 from telegram.ext import (
@@ -23,8 +25,9 @@ from models import Chat, Repo, ChatRepo
 
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['SQLALCHEMY_ECHO'])
 
-link_pattern = re.compile("https://github.com[:/](.+[:/].+)")
 direct_pattern = re.compile(".+/.+")
+github_link_pattern = re.compile("https://github.com[:/](.+[:/].+)")
+pypi_link_pattern = re.compile("https://pypi.org/project/(.+)/")
 
 
 def get_or_create_chat(session, telegram_user):
@@ -337,8 +340,31 @@ class TelegramBot(object):
         """Add GitHub repo"""
         user = update.effective_user
 
-        link_groups = link_pattern.search(update.message.text)
-        if link_groups:
+        if pypi_link_pattern.search(update.message.text):
+            link_groups = pypi_link_pattern.search(update.message.text)
+            project = link_groups.group(1)
+            resp = urllib3.request("GET", f"https://pypi.org/pypi/{project}/json")
+            if resp.status == 200:
+                pypi_data = json.loads(resp.data.decode('utf-8'))
+                if ("Source" in pypi_data["info"]["project_urls"] and
+                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])):
+                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])
+                    repo_name = link_groups.group(1)
+                elif ("Homepage" in pypi_data["info"]["project_urls"] and
+                      github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
+                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])
+                    repo_name = link_groups.group(1)
+                elif pypi_data["info"]["home_page"] and github_link_pattern.search(pypi_data["info"]["home_page"]):
+                    link_groups = github_link_pattern.search(pypi_data["info"]["home_page"])
+                    repo_name = link_groups.group(1)
+                else:
+                    await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
+                    return
+            else:
+                await update.message.reply_text("Error: Invalid repo.")
+                return
+        elif github_link_pattern.search(update.message.text):
+            link_groups = github_link_pattern.search(update.message.text)
             repo_name = link_groups.group(1)
         elif direct_pattern.search(update.message.text):
             repo_name = update.message.text
