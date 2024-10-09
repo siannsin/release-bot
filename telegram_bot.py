@@ -28,6 +28,7 @@ engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['S
 direct_pattern = re.compile(".+/.+")
 github_link_pattern = re.compile("https://github.com[:/](.+[:/].+)")
 pypi_link_pattern = re.compile("https://pypi.org/project/(.+)/")
+npm_link_pattern = re.compile("https://www.npmjs.com/package/(.+)")
 
 
 def get_or_create_chat(session, telegram_user):
@@ -351,11 +352,31 @@ class TelegramBot(object):
                     link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])
                     repo_name = link_groups.group(1)
                 elif ("Homepage" in pypi_data["info"]["project_urls"] and
-                      github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
+                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
                     link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])
                     repo_name = link_groups.group(1)
                 elif pypi_data["info"]["home_page"] and github_link_pattern.search(pypi_data["info"]["home_page"]):
                     link_groups = github_link_pattern.search(pypi_data["info"]["home_page"])
+                    repo_name = link_groups.group(1)
+                else:
+                    await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
+                    return
+            else:
+                await update.message.reply_text("Error: Invalid repo.")
+                return
+        elif npm_link_pattern.search(update.message.text):
+            link_groups = npm_link_pattern.search(update.message.text)
+            project = link_groups.group(1)
+            resp = urllib3.request("GET", f"https://api.npms.io/v2/package/{project}")
+            if resp.status == 200:
+                npm_data = json.loads(resp.data.decode('utf-8'))
+                if ("repository" in npm_data["collected"]["metadata"]["links"] and
+                        github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])):
+                    link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])
+                    repo_name = link_groups.group(1)
+                elif ("homepage" in npm_data["collected"]["metadata"]["links"] and
+                        github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["homepage"])):
+                    link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["homepage"])
                     repo_name = link_groups.group(1)
                 else:
                     await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
