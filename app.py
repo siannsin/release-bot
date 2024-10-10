@@ -104,7 +104,8 @@ def poll_github():
                     "\\1",
                     release_body
                 )
-                release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]
+                if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
+                    release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n<SKIPPED>"
 
                 if release.title == repo_obj.current_tag or release.title == f"v{repo_obj.current_title}":
                     # Skip release title when it is equal to tag
