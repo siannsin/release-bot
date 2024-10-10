@@ -18,9 +18,10 @@ from config import Config
 
 PROCESS_PRE_RELEASES = False
 
-github_extra_html_tags_pattern = re.compile("<p align=\".*\".*>|</p>|<a name=\".*\">|</a>|<picture>.*</picture>|"
-                                            "<sub>|</sub>|<sup>|</sup>|<!--.*-->")
-github_img_html_tag_pattern = re.compile("<img src=\"(.*?)\".*>")
+github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
+                                            "<h[1-4]>|</h[1-4]>|<sub>|</sub>|<sup>|</sup>|<!--.*?-->",
+                                            flags=re.DOTALL)
+github_img_html_tag_pattern = re.compile("<img src=\"(.*?)\".*?>")
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -105,7 +106,7 @@ def poll_github():
                     release_body
                 )
                 if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
-                    release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n<SKIPPED>"
+                    release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n-=SKIPPED=-"
 
                 if release.title == repo_obj.current_tag or release.title == f"v{repo_obj.current_title}":
                     # Skip release title when it is equal to tag
