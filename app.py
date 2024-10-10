@@ -106,11 +106,17 @@ def poll_github():
                 )
                 release_body = release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]
 
+                if release.title == repo_obj.current_tag or release.title == f"v{repo_obj.current_title}":
+                    # Skip release title when it is equal to tag
+                    release_title = ""
+                else:
+                    release_title = release.title
+
                 for chat in repo_obj.chats:
                     if chat.release_note_format == "quote":
                         parse_mode = ParseMode.HTML
                         message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                                   f"<b>{release.title}</b>"
+                                   f"<b>{release_title}</b>"
                                    f" <code>{repo_obj.current_tag}</code>"
                                    f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
                                    f"<blockquote>{release_body}</blockquote>"
@@ -118,7 +124,7 @@ def poll_github():
                     elif chat.release_note_format == "pre":
                         parse_mode = ParseMode.HTML
                         message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                                   f"<b>{release.title}</b>"
+                                   f"<b>{release_title}</b>"
                                    f" <code>{repo_obj.current_tag}</code>"
                                    f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
                                    f"<pre>{release_body}</pre>"
@@ -126,7 +132,7 @@ def poll_github():
                     else:
                         parse_mode = ParseMode.MARKDOWN_V2
                         message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
-                                              f"*{release.title}*"
+                                              f"*{release_title}*"
                                               f" `{repo_obj.current_tag}`"
                                               f"{" _pre-release_" if release.prerelease else ""}\n\n"
                                               f"{release_body + "\n\n" if release_body else ""}"
