@@ -5,6 +5,7 @@ import threading
 from itertools import batched
 
 import github
+import requirements
 import telegram
 import urllib3
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
@@ -23,10 +24,12 @@ from sqlalchemy.orm import Session
 from app import app, github_obj, __version__
 from models import Chat, Repo, ChatRepo
 
+MAX_UPLOADED_FILE_SIZE = 1024 * 10  # 10kB
+
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['SQLALCHEMY_ECHO'])
 
 direct_pattern = re.compile(".+/.+")
-github_link_pattern = re.compile("https://github.com[:/](.+[:/].+)")
+github_link_pattern = re.compile("https://github.com/([^/]+/[^/]+)/?")
 pypi_link_pattern = re.compile("https://pypi.org/project/(.+)/")
 npm_link_pattern = re.compile("https://www.npmjs.com/package/(.+)")
 
@@ -59,6 +62,7 @@ class TelegramBot(object):
         self.application.add_handler(CommandHandler("stats", self.stats_command))
         self.application.add_handler(MessageHandler(filters.COMMAND, self.unknown_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message))
+        self.application.add_handler(MessageHandler(filters.Document.ALL, self.download_file))
         self.application.add_handler(CallbackQueryHandler(self.button))
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -337,6 +341,30 @@ class TelegramBot(object):
 
         await update.message.reply_text(text)
 
+    def _pypi2github(self, project_name):
+        resp = urllib3.request("GET", f"https://pypi.org/pypi/{project_name}/json")
+        repo_name = None
+        if resp.status == 200:
+            pypi_data = json.loads(resp.data.decode('utf-8'))
+            if pypi_data["info"]["project_urls"]:
+                if ("Source" in pypi_data["info"]["project_urls"] and
+                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])):
+                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])
+                    repo_name = link_groups.group(1)
+                elif ("Source Code" in pypi_data["info"]["project_urls"] and
+                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Source Code"])):
+                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source Code"])
+                    repo_name = link_groups.group(1)
+                elif ("Homepage" in pypi_data["info"]["project_urls"] and
+                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
+                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])
+                    repo_name = link_groups.group(1)
+            elif pypi_data["info"]["home_page"] and github_link_pattern.search(pypi_data["info"]["home_page"]):
+                link_groups = github_link_pattern.search(pypi_data["info"]["home_page"])
+                repo_name = link_groups.group(1)
+
+        return resp.status, repo_name
+
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo"""
         user = update.effective_user
@@ -344,21 +372,9 @@ class TelegramBot(object):
         if pypi_link_pattern.search(update.message.text):
             link_groups = pypi_link_pattern.search(update.message.text)
             project = link_groups.group(1)
-            resp = urllib3.request("GET", f"https://pypi.org/pypi/{project}/json")
-            if resp.status == 200:
-                pypi_data = json.loads(resp.data.decode('utf-8'))
-                if ("Source" in pypi_data["info"]["project_urls"] and
-                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])):
-                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])
-                    repo_name = link_groups.group(1)
-                elif ("Homepage" in pypi_data["info"]["project_urls"] and
-                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
-                    link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])
-                    repo_name = link_groups.group(1)
-                elif pypi_data["info"]["home_page"] and github_link_pattern.search(pypi_data["info"]["home_page"]):
-                    link_groups = github_link_pattern.search(pypi_data["info"]["home_page"])
-                    repo_name = link_groups.group(1)
-                else:
+            status, repo_name = self._pypi2github(project)
+            if status == 200:
+                if not repo_name:
                     await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
                     return
             else:
@@ -400,6 +416,31 @@ class TelegramBot(object):
             return
 
         await self.add_repo(user, repo, update.get_bot(), False)
+
+    async def download_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Add GitHub repo from uploaded requirements.txt"""
+        user = update.effective_user
+
+        if update.message.document.file_size > MAX_UPLOADED_FILE_SIZE:
+            await update.message.reply_text("I can't process too big file.")
+            return
+        if update.message.document.file_name != "requirements.txt":
+            await update.message.reply_text("I don't know this file format.")
+            return
+
+        file = await context.bot.get_file(update.message.document)
+        data = await file.download_as_bytearray()
+        decoded_string = data.decode("utf-8", errors='replace')
+        for req in requirements.parse(decoded_string):
+            status, repo_name = self._pypi2github(req.name)
+            if status == 200 and repo_name:
+                try:
+                    repo = github_obj.get_repo(repo_name)
+                except github.GithubException as e:
+                    print("Github Exception in download_file", e)
+                    continue
+
+                await self.add_repo(user, repo, update.get_bot(), True)
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
