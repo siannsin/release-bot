@@ -108,7 +108,7 @@ def poll_github():
                 if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
                     release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n-=SKIPPED=-"
 
-                if release.title == repo_obj.current_tag or release.title == f"v{repo_obj.current_title}":
+                if release.title == repo_obj.current_tag or release.title == f"v{repo_obj.current_tag}":
                     # Skip release title when it is equal to tag
                     release_title = ""
                 else:
@@ -134,7 +134,7 @@ def poll_github():
                     else:
                         parse_mode = ParseMode.MARKDOWN_V2
                         message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
-                                              f"*{release_title}*"
+                                              f"{f"*{release_title}*" if release_title else ""}"
                                               f" `{repo_obj.current_tag}`"
                                               f"{" _pre-release_" if release.prerelease else ""}\n\n"
                                               f"{release_body + "\n\n" if release_body else ""}"
