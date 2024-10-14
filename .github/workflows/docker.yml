@@ -32,9 +32,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - id: test_tag
-        run: INPUT=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test echo "::set-output name=value::${INPUT,,}"
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -70,21 +67,21 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           load: true
-          tags: ${{ steps.test_tag.outputs.value }}
+          tags: ${{ steps.meta.outputs.tags }}
 
       - name: Test
         run: |
-          docker run --rm ${{ steps.test_tag.outputs.value }} -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          docker run --rm ${{ steps.meta.outputs.tags }} -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
           # Wait for server to start
           sleep 30
           # Check if status code is correct
           expected_status="HTTP/1.1 200 OK"
           actual_status=$(curl -I -X GET http://localhost:5000 | head -n 1)
-          if [[ ! "$actual_status" =~ "$expected_status" ]]; then 
+          if [[ ! "$actual_status" =~ "$expected_status" ]]; then
             echo 'Failed while checking the status code after request to /'
             echo 'expected: ' $expected_status
             echo 'actual:   ' $actual_status
-            exit 1; 
+            exit 1;
           fi
 
       - name: Build and push
