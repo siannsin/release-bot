@@ -67,7 +67,7 @@ scheduler.start()
 
 @scheduler.task('interval', id='poll_github', hours=1)
 def poll_github():
-    with (scheduler.app.app_context()):
+    with ((scheduler.app.app_context())):
         for repo_obj in models.Repo.query.all():
             try:
                 app.logger.info('Poll GitHub repo %s', repo_obj.full_name)
@@ -108,7 +108,9 @@ def poll_github():
                 if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
                     release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n-=SKIPPED=-"
 
-                if release.title == repo_obj.current_tag or release.title == f"v{repo_obj.current_tag}":
+                if (release.title == repo_obj.current_tag or
+                        release.title == f"v{repo_obj.current_tag}" or
+                        f"v{release.title}" == repo_obj.current_tag):
                     # Skip release title when it is equal to tag
                     release_title = ""
                 else:
