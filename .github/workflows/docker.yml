@@ -63,6 +63,27 @@ jobs:
             #type=semver,pattern={{major}}.{{minor}}
             #type=semver,pattern={{major}}
 
+      - name: Build and export to Docker
+        uses: docker/build-push-action@v6
+        with:
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
+
+      - name: Test
+        run: |
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # Wait for server to start
+          sleep 30
+          # Check if status code is correct
+          expected_status="HTTP/1.1 200 OK"
+          actual_status=$(curl -I -X GET http://localhost:5000 | head -n 1)
+          if [[ ! "$actual_status" =~ "$expected_status" ]]; then 
+            echo 'Failed while checking the status code after request to /'
+            echo 'expected: ' $expected_status
+            echo 'actual:   ' $actual_status
+            exit 1; 
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
