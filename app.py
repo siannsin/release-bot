@@ -19,7 +19,7 @@ from config import Config
 PROCESS_PRE_RELEASES = False
 
 github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
-                                            "<h[1-4]>|</h[1-4]>|<sub>|</sub>|<sup>|</sup>|<!--.*?-->",
+                                            "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|<!--.*?-->",
                                             flags=re.DOTALL)
 github_img_html_tag_pattern = re.compile("<img src=\"(.*?)\".*?>")
 
