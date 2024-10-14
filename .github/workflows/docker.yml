@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - id: test_tag
+        run: INPUT=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test echo "::set-output name=value::${INPUT,,}"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -67,11 +70,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           load: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
+          tags: ${{ steps.test_tag.outputs.value }}
 
       - name: Test
         run: |
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          docker run --rm ${{ steps.test_tag.outputs.value }} -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
           # Wait for server to start
           sleep 30
           # Check if status code is correct
