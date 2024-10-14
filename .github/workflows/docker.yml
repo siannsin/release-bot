@@ -71,7 +71,7 @@ jobs:
 
       - name: Test
         run: |
-          docker run --rm ${{ steps.meta.outputs.tags }} -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          docker run --rm -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} ${{ steps.meta.outputs.tags }}
           # Wait for server to start
           sleep 30
           # Check if status code is correct
