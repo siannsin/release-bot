@@ -9,7 +9,7 @@ import requirements
 import telegram
 import urllib3
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.constants import InlineKeyboardMarkupLimit
+from telegram.constants import InlineKeyboardMarkupLimit, ParseMode
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -158,7 +158,7 @@ class TelegramBot(object):
                     await bot.send_message(
                         chat_id=chat.id,
                         text=f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
-                        parse_mode='HTML',
+                        parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
                             url=repo.html_url,
                             prefer_small_media=True)
@@ -171,7 +171,7 @@ class TelegramBot(object):
                     await bot.send_message(
                         chat_id=chat.id,
                         text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
-                        parse_mode='HTML',
+                        parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
                             url=repo.html_url,
                             prefer_small_media=True)
@@ -181,7 +181,7 @@ class TelegramBot(object):
                         chat_id=chat.id,
                         text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
                              f"but it has not releases",
-                        parse_mode='HTML',
+                        parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
                             url=repo.html_url,
                             prefer_small_media=True)
