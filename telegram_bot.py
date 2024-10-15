@@ -462,6 +462,16 @@ class TelegramBot(object):
 
         return True
 
+    async def webhook(self, data):
+        async with self.application.bot:
+            await self.application.process_update(Update.de_json(data=data, bot=self.application.bot))
+
+    async def run_webhook(self):
+        await self.application.initialize()
+        async with self.application.bot:
+            await self.application.bot.set_webhook(url=f"{app.config['SITE_URL']}/telegram",
+                                                   allowed_updates=Update.ALL_TYPES)
+
     async def run_polling(self):
         await self.application.initialize()
         await self.application.start()
@@ -471,7 +481,10 @@ class TelegramBot(object):
 
     def start(self):
         """Start the bot instance in thread"""
-        bot = TelegramBot(token=self._token)
-        thread = threading.Thread(target=asyncio.run, args=(bot.run_polling(),))
-        thread.daemon = True
-        thread.start()
+        if app.config['SITE_URL']:
+            asyncio.run(self.run_webhook())
+        else:
+            bot = TelegramBot(token=self._token)
+            thread = threading.Thread(target=asyncio.run, args=(bot.run_polling(),))
+            thread.daemon = True
+            thread.start()
