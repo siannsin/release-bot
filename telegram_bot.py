@@ -472,11 +472,11 @@ class TelegramBot(object):
                                                    allowed_updates=Update.ALL_TYPES)
 
     async def run_polling(self):
-        await self.application.initialize()
-        await self.application.start()
-        await self.application.updater.start_polling()
-        while True:
-            await asyncio.sleep(1)
+        async with self.application:
+            await self.application.start()
+            await self.application.updater.start_polling()
+            while True:
+                await asyncio.sleep(1)
 
     def start(self):
         """Start the bot instance in thread"""
