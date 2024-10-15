@@ -20,9 +20,10 @@ from config import Config
 PROCESS_PRE_RELEASES = False
 
 github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
-                                            "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|<!--.*?-->",
+                                            "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|</?dl>|</?dt>|"
+                                            "</?dd>|</?em>|<!--.*?-->",
                                             flags=re.DOTALL)
-github_img_html_tag_pattern = re.compile("<img src=\"(.*?)\".*?>")
+github_img_html_tag_pattern = re.compile("<img .*?src=\"(.*?)\".*?>")
 
 db = SQLAlchemy()
 migrate = Migrate()
