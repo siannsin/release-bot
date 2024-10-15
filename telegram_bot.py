@@ -454,13 +454,12 @@ class TelegramBot(object):
         async with self.application.bot:
             await self.application.bot.send_message(*args, **kwargs)
 
-    def test_token(self):
+    async def test_token(self):
         try:
-            asyncio.run(self.get_me())
+            async with self.application.bot:
+                return True
         except telegram.error.InvalidToken:
             return False
-
-        return True
 
     async def webhook(self, data):
         async with self.application.bot:
