@@ -15,6 +15,7 @@ env:
   REGISTRY_USER: ${{ github.repository_owner }}
   REGISTRY_PASS: ${{ secrets.GITHUB_TOKEN }}
   IMAGE_NAME: ${{ github.repository }}
+  TEST_TAG: ghcr.io/janisv/release-bot:test
 
 jobs:
   build-docker:
@@ -67,11 +68,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.TEST_TAG }}
 
       - name: Test
         run: |
-          docker run --rm -d -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} -p 5000:5000 ${{ steps.meta.outputs.tags[0] }}
+          docker run --rm -d -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} -p 5000:5000 ${{ env.TEST_TAG }}
           # Wait for server to start
           sleep 30
           # Check if status code is correct
