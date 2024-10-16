@@ -134,6 +134,17 @@ class TelegramBot(object):
 
     async def add_repo(self, user, repo, bot, silent=False) -> None:
         with Session(engine) as session:
+            chat = get_or_create_chat(session, user)
+
+            if app.config['MAX_REPOS_PER_CHAT']:
+                if len(chat.repos) >= app.config['MAX_REPOS_PER_CHAT']:  # TODO: Use SQL COUNT instead Python count
+                    if not silent:
+                        await bot.send_message(
+                            chat_id=chat.id,
+                            text=f"Maximum number of repos per user reached.",
+                        )
+                    return
+
             repo_obj = session.get(Repo, repo.id)
             if not repo_obj:
                 repo_obj = Repo(
@@ -152,7 +163,6 @@ class TelegramBot(object):
                 session.add(repo_obj)
                 session.commit()
 
-            chat = get_or_create_chat(session, user)
             if chat in repo_obj.chats:
                 if not silent:
                     await bot.send_message(
