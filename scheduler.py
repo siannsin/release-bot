@@ -4,7 +4,6 @@ import re
 import github
 import telegram
 from telegram.constants import MessageLimit, ParseMode
-# TODO: Use md2tgmd instead telegramify_markdown
 from telegramify_markdown import markdownify
 
 import models

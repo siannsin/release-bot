@@ -15,7 +15,6 @@ async def index():
 
 @app.post("/telegram")
 async def telegram() -> Response:
-    """Handle incoming Telegram updates by putting them into the `update_queue`"""
     if app.config['SITE_URL']:
         await telegram_bot.webhook(request.json)
         return Response(status=HTTPStatus.OK)
