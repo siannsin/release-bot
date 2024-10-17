@@ -20,6 +20,7 @@ class Chat(db.Model):
 class Repo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String)
+    description = db.Column(db.String)
     link = db.Column(db.String)
     current_tag = db.Column(db.String)
     current_release_id = db.Column(db.Integer)

@@ -150,6 +150,7 @@ class TelegramBot(object):
                 repo_obj = Repo(
                     id=repo.id,
                     full_name=repo.full_name,
+                    description=repo.description,
                     link=repo.html_url,
                 )
                 try:
