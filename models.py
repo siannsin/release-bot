@@ -28,6 +28,10 @@ class Repo(db.Model):
 
     chats = db.relationship('Chat', secondary='chat_repo', back_populates='repos')
 
+    def is_orphan(self):
+        # TODO: Use SQL COUNT instead Python len
+        return len(self.chats) == 0
+
 
 class ChatRepo(db.Model):
     chat_id = db.Column(db.Integer, db.ForeignKey('chat.id'), primary_key=True)

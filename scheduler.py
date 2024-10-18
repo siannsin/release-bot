@@ -22,6 +22,13 @@ github_img_html_tag_pattern = re.compile("<img .*?src=\"(.*?)\".*?>")
 def poll_github():
     with scheduler.app.app_context():
         for repo_obj in models.Repo.query.all():
+            #  TODO: Use sqlalchemy_utils.auto_delete_orphans
+            if repo_obj.is_orphan():
+                app.logger.info('Delete orphaned GitHub repo %s', repo_obj.full_name)
+                db.session.delete(repo_obj)
+                db.session.commit()
+                continue
+
             try:
                 app.logger.info('Poll GitHub repo %s', repo_obj.full_name)
                 repo = github_obj.get_repo(repo_obj.id)
@@ -102,7 +109,6 @@ def poll_github():
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
                         app.logger.info('Bot was blocked by the user')
-                        # TODO: Delete empty repos
                         db.session.delete(chat)
                         db.session.commit()
             elif has_tag and repo_obj.current_tag != tag.name:
@@ -121,7 +127,6 @@ def poll_github():
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
                         app.logger.info('Bot was blocked by the user')
-                        # TODO: Delete empty repos
                         db.session.delete(chat)
                         db.session.commit()
 
@@ -140,6 +145,5 @@ def poll_github_user():
                 asyncio.run(telegram_bot.add_starred_repos(chat, github_user, telegram_bot))
             except telegram.error.Forbidden as e:
                 app.logger.info('Bot was blocked by the user')
-                # TODO: Delete empty repos
                 db.session.delete(chat)
                 db.session.commit()

@@ -137,7 +137,7 @@ class TelegramBot(object):
             chat = get_or_create_chat(session, user)
 
             if app.config['MAX_REPOS_PER_CHAT']:
-                if len(chat.repos) >= app.config['MAX_REPOS_PER_CHAT']:  # TODO: Use SQL COUNT instead Python count
+                if len(chat.repos) >= app.config['MAX_REPOS_PER_CHAT']:  # TODO: Use SQL COUNT instead Python len
                     if not silent:
                         await bot.send_message(
                             chat_id=chat.id,
@@ -282,9 +282,6 @@ class TelegramBot(object):
                 repo_obj = session.get(Repo, query.data)
                 if repo_obj:
                     chat.repos.remove(repo_obj)
-                    # TODO: Use cascade
-                    if not repo_obj.chats:
-                        session.delete(repo_obj)
                     session.commit()
 
                     reply_message = f"Deleted repo: {repo_obj.full_name}"
