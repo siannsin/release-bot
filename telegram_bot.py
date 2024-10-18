@@ -18,15 +18,11 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
-from app import app, github_obj, __version__
+from app import github_obj, __version__, db
 from models import Chat, Repo, ChatRepo
 
 MAX_UPLOADED_FILE_SIZE = 1024 * 10  # 10kB
-
-engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=app.config['SQLALCHEMY_ECHO'])
 
 direct_pattern = re.compile(".+/.+")
 github_link_pattern = re.compile("https://github.com/([^/]+/[^/]+)/?")
@@ -48,10 +44,18 @@ def get_or_create_chat(session, telegram_user):
 
 
 class TelegramBot(object):
-    def __init__(self, token):
-        self._token = token
 
-        self.application = Application.builder().token(self._token).build()
+    def __init__(self, app=None):
+        self.application = None
+        self.app = None
+
+        if app:
+            self.init_app(app)
+
+    def init_app(self, app):
+        self.app = app
+
+        self.application = Application.builder().token(self.app.config['TELEGRAM_BOT_TOKEN']).build()
 
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("about", self.about_command))
@@ -67,11 +71,6 @@ class TelegramBot(object):
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
-        user = update.effective_user
-
-        with Session(engine) as session:
-            get_or_create_chat(session, user)
-
         await update.message.reply_text(
             "Send a message containing repo for subscribing in one of the following formats: "
             "owner/repo, https://github.com/owner/repo"
@@ -79,8 +78,6 @@ class TelegramBot(object):
 
     async def about_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /about is issued."""
-        user = update.effective_user
-
         await update.message.reply_text(
             f"release-bot - a telegram bot for GitHub releases v{__version__}\n"
             "Source code available at https://github.com/JanisV/release-bot"
@@ -90,9 +87,9 @@ class TelegramBot(object):
         """Send a message when the command /list is issued."""
         user = update.effective_user
 
-        with Session(engine) as session:
+        with self.app.app_context():
             text = "Your subscriptions:\n"
-            chat = get_or_create_chat(session, user)
+            chat = get_or_create_chat(db.session, user)
             for i, repo in enumerate(chat.repos):
                 text += f"{i + 1}. <b><a href='{repo.link}'>{repo.full_name}</a></b>\n"
 
@@ -106,8 +103,8 @@ class TelegramBot(object):
         user = update.effective_user
 
         keyboard = []
-        with Session(engine) as session:
-            chat = get_or_create_chat(session, user)
+        with self.app.app_context():
+            chat = get_or_create_chat(db.session, user)
             for i, repo in enumerate(chat.repos):
                 repo_name = repo.full_name.split('/')[1]
                 if repo.current_tag:
@@ -133,11 +130,11 @@ class TelegramBot(object):
             await update.message.reply_text("You are haven't repos yet.")
 
     async def add_repo(self, user, repo, bot, silent=False) -> None:
-        with Session(engine) as session:
-            chat = get_or_create_chat(session, user)
+        with self.app.app_context():
+            chat = get_or_create_chat(db.session, user)
 
-            if app.config['MAX_REPOS_PER_CHAT']:
-                if len(chat.repos) >= app.config['MAX_REPOS_PER_CHAT']:  # TODO: Use SQL COUNT instead Python len
+            if self.app.config['MAX_REPOS_PER_CHAT']:
+                if len(chat.repos) >= self.app.config['MAX_REPOS_PER_CHAT']:  # TODO: Use SQL COUNT instead Python len
                     if not silent:
                         await bot.send_message(
                             chat_id=chat.id,
@@ -145,7 +142,7 @@ class TelegramBot(object):
                         )
                     return
 
-            repo_obj = session.get(Repo, repo.id)
+            repo_obj = db.session.get(Repo, repo.id)
             if not repo_obj:
                 repo_obj = Repo(
                     id=repo.id,
@@ -161,8 +158,8 @@ class TelegramBot(object):
                     # Repo has no releases yet
                     pass
 
-                session.add(repo_obj)
-                session.commit()
+                db.session.add(repo_obj)
+                db.session.commit()
 
             if chat in repo_obj.chats:
                 if not silent:
@@ -176,7 +173,7 @@ class TelegramBot(object):
                     )
             else:
                 repo_obj.chats.append(chat)
-                session.commit()
+                db.session.commit()
 
                 if repo_obj.current_release_id:
                     await bot.send_message(
@@ -214,11 +211,11 @@ class TelegramBot(object):
         if query.data == 'cancel':
             await query.delete_message()
         elif query.data == 'unsubscribe_user':
-            with Session(engine) as session:
-                chat = get_or_create_chat(session, user)
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
                 github_username = chat.github_username
                 chat.github_username = None
-                session.commit()
+                db.session.commit()
 
                 await query.edit_message_text(text=f"Unsubscribed from user {github_username}.")
         elif query.data.startswith("subscribe_user-"):
@@ -229,10 +226,10 @@ class TelegramBot(object):
                 await update.message.reply_text("Error: User not founded.")
                 return
 
-            with Session(engine) as session:
-                chat = get_or_create_chat(session, user)
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
                 chat.github_username = github_user.login
-                session.commit()
+                db.session.commit()
 
                 await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
 
@@ -249,8 +246,8 @@ class TelegramBot(object):
 
             await query.delete_message()
         elif query.data == "release_note_format":
-            with Session(engine) as session:
-                chat = get_or_create_chat(session, user)
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
                 keyboard = [[InlineKeyboardButton(f"Quote {"✅" if chat.release_note_format == "quote" else ""}",
                                                   callback_data="release_note_format-quote"),
                              InlineKeyboardButton(f"Pre {"✅" if chat.release_note_format == "pre" else ""}",
@@ -262,8 +259,8 @@ class TelegramBot(object):
 
             await query.edit_message_reply_markup(reply_markup)
         elif query.data.startswith("release_note_format-"):
-            with Session(engine) as session:
-                chat = get_or_create_chat(session, user)
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
                 if query.data == "release_note_format-quote":
                     chat.release_note_format = "quote"
                 elif query.data == "release_note_format-pre":
@@ -273,16 +270,16 @@ class TelegramBot(object):
                 else:
                     await update.message.reply_text("Error: Unknown format.")
                     return
-                session.commit()
+                db.session.commit()
 
             await query.edit_message_text(text=f"Release note format changed.")
         else:
-            with Session(engine) as session:
-                chat = get_or_create_chat(session, user)
-                repo_obj = session.get(Repo, query.data)
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
+                repo_obj = db.session.get(Repo, query.data)
                 if repo_obj:
                     chat.repos.remove(repo_obj)
-                    session.commit()
+                    db.session.commit()
 
                     reply_message = f"Deleted repo: {repo_obj.full_name}"
                 else:
@@ -294,8 +291,8 @@ class TelegramBot(object):
         """Send a message when the command /starred is issued."""
         user = update.effective_user
 
-        with Session(engine) as session:
-            chat = get_or_create_chat(session, user)
+        with self.app.app_context():
+            chat = get_or_create_chat(db.session, user)
             if chat.github_username:
                 keyboard = [[InlineKeyboardButton("Unsubscribe from user", callback_data="unsubscribe_user")],
                             [InlineKeyboardButton("Cancel", callback_data="cancel")]]
@@ -339,10 +336,10 @@ class TelegramBot(object):
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /stats is issued."""
-        with Session(engine) as session:
-            repo_count = session.query(Repo).count()
-            user_count = session.query(Chat).count()
-            subscription_count = session.query(ChatRepo).count()
+        with self.app.app_context():
+            repo_count = db.session.query(Repo).count()
+            user_count = db.session.query(Chat).count()
+            subscription_count = db.session.query(ChatRepo).count()
 
             # text = f"I have to update {} releases for {} repos via {} subscriptions added by {} users."
             text = f"I have to update {repo_count} repos via {subscription_count} subscriptions added by {user_count} users."
@@ -476,7 +473,7 @@ class TelegramBot(object):
     async def run_webhook(self):
         await self.application.initialize()
         async with self.application.bot:
-            await self.application.bot.set_webhook(url=f"{app.config['SITE_URL']}/telegram",
+            await self.application.bot.set_webhook(url=f"{self.app.config['SITE_URL']}/telegram",
                                                    allowed_updates=Update.ALL_TYPES)
 
     async def run_polling(self):
@@ -487,11 +484,11 @@ class TelegramBot(object):
                 await asyncio.sleep(1)
 
     def start(self):
-        """Start the bot instance in thread"""
-        if app.config['SITE_URL']:
+        if self.app.config['SITE_URL']:
             asyncio.run(self.run_webhook())
         else:
-            bot = TelegramBot(token=self._token)
+            # Start the bot instance in thread
+            bot = TelegramBot(self.app)
             thread = threading.Thread(target=asyncio.run, args=(bot.run_polling(),))
             thread.daemon = True
             thread.start()

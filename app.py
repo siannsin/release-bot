@@ -36,11 +36,10 @@ else:
     auth = None
 github_obj = Github(auth=auth)
 
-
 if app.config['TELEGRAM_BOT_TOKEN']:
     from telegram_bot import TelegramBot
 
-    telegram_bot = TelegramBot(token=app.config['TELEGRAM_BOT_TOKEN'])
+    telegram_bot = TelegramBot(app)
     if not asyncio.run(telegram_bot.test_token()):
         app.logger.error('Telegram bot token is invalid')
         exit()
