@@ -46,6 +46,7 @@ if app.config['TELEGRAM_BOT_TOKEN']:
         exit()
     telegram_bot.start()
 else:
+    telegram_bot = None
     app.logger.error('Telegram bot token not specified')
 
 scheduler.start()
@@ -54,6 +55,7 @@ scheduler.start()
 if __name__ == '__main__':
     app.run()
 
+import database  # noqa: E402
 import models  # noqa: E402
 import routes  # noqa: E402
 import scheduler  # noqa: E402
