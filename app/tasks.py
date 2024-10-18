@@ -6,7 +6,7 @@ import telegram
 from telegram.constants import MessageLimit, ParseMode
 from telegramify_markdown import markdownify
 
-import models
+from app import models
 from app import github_obj, db, telegram_bot, scheduler
 
 PROCESS_PRE_RELEASES = False

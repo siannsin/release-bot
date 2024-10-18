@@ -20,7 +20,7 @@ from telegram.ext import (
 )
 
 from app import github_obj, __version__, db
-from models import Chat, Repo, ChatRepo
+from app.models import Chat, Repo, ChatRepo
 
 MAX_UPLOADED_FILE_SIZE = 1024 * 10  # 10kB
 
