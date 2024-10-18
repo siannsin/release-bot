@@ -7,7 +7,7 @@ from telegram.constants import MessageLimit, ParseMode
 from telegramify_markdown import markdownify
 
 import models
-from app import app, github_obj, db, telegram_bot, scheduler
+from app import github_obj, db, telegram_bot, scheduler
 
 PROCESS_PRE_RELEASES = False
 
@@ -24,13 +24,13 @@ def poll_github():
         for repo_obj in models.Repo.query.all():
             #  TODO: Use sqlalchemy_utils.auto_delete_orphans
             if repo_obj.is_orphan():
-                app.logger.info('Delete orphaned GitHub repo %s', repo_obj.full_name)
+                scheduler.app.logger.info('Delete orphaned GitHub repo %s', repo_obj.full_name)
                 db.session.delete(repo_obj)
                 db.session.commit()
                 continue
 
             try:
-                app.logger.info('Poll GitHub repo %s', repo_obj.full_name)
+                scheduler.app.logger.info('Poll GitHub repo %s', repo_obj.full_name)
                 repo = github_obj.get_repo(repo_obj.id)
             except github.GithubException as e:
                 print("Github Exception in poll_github", e)
@@ -108,7 +108,7 @@ def poll_github():
                                                               parse_mode=parse_mode,
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
-                        app.logger.info('Bot was blocked by the user')
+                        scheduler.app.logger.info('Bot was blocked by the user')
                         db.session.delete(chat)
                         db.session.commit()
             elif has_tag and repo_obj.current_tag != tag.name:
@@ -126,7 +126,7 @@ def poll_github():
                                                               parse_mode=ParseMode.HTML,
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
-                        app.logger.info('Bot was blocked by the user')
+                        scheduler.app.logger.info('Bot was blocked by the user')
                         db.session.delete(chat)
                         db.session.commit()
 
@@ -138,12 +138,12 @@ def poll_github_user():
             try:
                 github_user = github_obj.get_user(chat.github_username)
             except github.GithubException as e:
-                app.logger.error(f"Can't found user '{chat.github_username}'")
+                scheduler.app.logger.error(f"Can't found user '{chat.github_username}'")
                 continue
 
             try:
                 asyncio.run(telegram_bot.add_starred_repos(chat, github_user, telegram_bot))
             except telegram.error.Forbidden as e:
-                app.logger.info('Bot was blocked by the user')
+                scheduler.app.logger.info('Bot was blocked by the user')
                 db.session.delete(chat)
                 db.session.commit()
