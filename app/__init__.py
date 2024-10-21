@@ -39,12 +39,12 @@ if app.config['TELEGRAM_BOT_TOKEN']:
 
     telegram_bot = TelegramBot(app)
     if not asyncio.run(telegram_bot.test_token()):
-        app.logger.error('Telegram bot token is invalid')
+        app.logger.fatal('Telegram bot token is invalid')
         exit()
     telegram_bot.start()
 else:
     telegram_bot = None
-    app.logger.error('Telegram bot token not specified')
+    app.logger.fatal('Telegram bot token not specified')
 
 scheduler.start()
 

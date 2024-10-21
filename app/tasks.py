@@ -71,16 +71,16 @@ def poll_github():
         for repo_obj in models.Repo.query.all():
             #  TODO: Use sqlalchemy_utils.auto_delete_orphans
             if repo_obj.is_orphan():
-                scheduler.app.logger.info('Delete orphaned GitHub repo %s', repo_obj.full_name)
+                scheduler.app.logger.info(f"Delete orphaned GitHub repo {repo_obj.full_name}")
                 db.session.delete(repo_obj)
                 db.session.commit()
                 continue
 
             try:
-                scheduler.app.logger.info('Poll GitHub repo %s', repo_obj.full_name)
+                scheduler.app.logger.info(f"Poll GitHub repo {repo_obj.full_name}")
                 repo = github_obj.get_repo(repo_obj.id)
             except github.GithubException as e:
-                print("Github Exception in poll_github", e)
+                scheduler.app.logger.error(f"GithubException for {repo_obj.full_name} in poll_github: {e}")
                 continue
 
             has_release = False
