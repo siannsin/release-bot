@@ -220,9 +220,9 @@ class TelegramBot(object):
 
                 await query.edit_message_text(text=f"Unsubscribed from user {github_username}.")
         elif query.data.startswith("subscribe_user-"):
-            github_user_id = query.data.split("-", 1)[1]
+            github_user_name = query.data.split("-", 1)[1]
             try:
-                github_user = github_obj.get_user_by_id(int(github_user_id))
+                github_user = github_obj.get_user(github_user_name)
             except github.GithubException as e:
                 await update.message.reply_text("Error: User not founded.")
                 return
@@ -236,9 +236,9 @@ class TelegramBot(object):
 
             await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
         elif query.data.startswith("add_repos-"):
-            github_user_id = query.data.split("-", 1)[1]
+            github_user_name = query.data.split("-", 1)[1]
             try:
-                github_user = github_obj.get_user_by_id(int(github_user_id))
+                github_user = github_obj.get_user(github_user_name)
             except github.GithubException as e:
                 await update.message.reply_text("Error: User not founded.")
                 return
@@ -317,8 +317,8 @@ class TelegramBot(object):
 
         starred = github_user.get_starred()
 
-        keyboard = [[InlineKeyboardButton("Subscribe user", callback_data=f"subscribe_user-{github_user.id}")],
-                    [InlineKeyboardButton("Add user's repos", callback_data=f"add_repos-{github_user.id}")],
+        keyboard = [[InlineKeyboardButton("Subscribe user", callback_data=f"subscribe_user-{github_user_name}")],
+                    [InlineKeyboardButton("Add user's repos", callback_data=f"add_repos-{github_user_name}")],
                     [InlineKeyboardButton("Cancel", callback_data="cancel")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
