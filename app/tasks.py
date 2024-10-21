@@ -79,6 +79,11 @@ def poll_github():
             try:
                 scheduler.app.logger.info(f"Poll GitHub repo {repo_obj.full_name}")
                 repo = github_obj.get_repo(repo_obj.id)
+            except github.UnknownObjectException as e:
+                scheduler.app.logger.info(f"Delete deleted GitHub repo {repo_obj.full_name}")
+                db.session.delete(repo_obj)
+                db.session.commit()
+                continue
             except github.GithubException as e:
                 scheduler.app.logger.error(f"GithubException for {repo_obj.full_name} in poll_github: {e}")
                 continue
