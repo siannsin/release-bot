@@ -3,7 +3,7 @@ import re
 
 import github
 import telegram
-from telegram.constants import MessageLimit, ParseMode
+from telegram.constants import ParseMode, MessageLimit
 from telegramify_markdown import markdownify
 
 from app import models
@@ -16,6 +16,53 @@ github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\
                                             "</?dd>|</?em>|<!--.*?-->",
                                             flags=re.DOTALL)
 github_img_html_tag_pattern = re.compile("<img .*?src=\"(.*?)\".*?>")
+
+
+def format_release_message(chat, repo, release):
+    release_body = release.body
+    release_body = github_extra_html_tags_pattern.sub(
+        "",
+        release_body
+    )
+    release_body = github_img_html_tag_pattern.sub(
+        "\\1",
+        release_body
+    )
+    if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
+        release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n-=SKIPPED=-"
+
+    current_tag = release.tag_name
+    if (release.title == current_tag or
+            release.title == f"v{current_tag}" or
+            f"v{release.title}" == current_tag):
+        # Skip release title when it is equal to tag
+        release_title = ""
+    else:
+        release_title = release.title
+
+    if chat.release_note_format == "quote":
+        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                   f"<b>{release_title}</b>"
+                   f" <code>{current_tag}</code>"
+                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                   f"<blockquote>{release_body}</blockquote>"
+                   f"<a href='{release.html_url}'>release note...</a>")
+    elif chat.release_note_format == "pre":
+        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                   f"<b>{release_title}</b>"
+                   f" <code>{current_tag}</code>"
+                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                   f"<pre>{release_body}</pre>"
+                   f"<a href='{release.html_url}'>release note...</a>")
+    else:
+        message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
+                              f"{f"*{release_title}*" if release_title else ""}"
+                              f" `{current_tag}`"
+                              f"{" _pre-release_" if release.prerelease else ""}\n\n"
+                              f"{release_body + "\n\n" if release_body else ""}"
+                              f"[release note...]({release.html_url})")
+
+    return message
 
 
 @scheduler.task('interval', id='poll_github', hours=1)
@@ -56,51 +103,13 @@ def poll_github():
                 repo_obj.current_tag = release.tag_name
                 db.session.commit()
 
-                release_body = release.body
-                release_body = github_extra_html_tags_pattern.sub(
-                    "",
-                    release_body
-                )
-                release_body = github_img_html_tag_pattern.sub(
-                    "\\1",
-                    release_body
-                )
-                if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
-                    release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n-=SKIPPED=-"
-
-                if (release.title == repo_obj.current_tag or
-                        release.title == f"v{repo_obj.current_tag}" or
-                        f"v{release.title}" == repo_obj.current_tag):
-                    # Skip release title when it is equal to tag
-                    release_title = ""
-                else:
-                    release_title = release.title
-
                 for chat in repo_obj.chats:
-                    if chat.release_note_format == "quote":
+                    message = format_release_message(chat, repo, release)
+
+                    if chat.release_note_format in ("quote", "pre"):
                         parse_mode = ParseMode.HTML
-                        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                                   f"<b>{release_title}</b>"
-                                   f" <code>{repo_obj.current_tag}</code>"
-                                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                                   f"<blockquote>{release_body}</blockquote>"
-                                   f"<a href='{release.html_url}'>release note...</a>")
-                    elif chat.release_note_format == "pre":
-                        parse_mode = ParseMode.HTML
-                        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                                   f"<b>{release_title}</b>"
-                                   f" <code>{repo_obj.current_tag}</code>"
-                                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                                   f"<pre>{release_body}</pre>"
-                                   f"<a href='{release.html_url}'>release note...</a>")
                     else:
                         parse_mode = ParseMode.MARKDOWN_V2
-                        message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
-                                              f"{f"*{release_title}*" if release_title else ""}"
-                                              f" `{repo_obj.current_tag}`"
-                                              f"{" _pre-release_" if release.prerelease else ""}\n\n"
-                                              f"{release_body + "\n\n" if release_body else ""}"
-                                              f"[release note...]({release.html_url})")
 
                     try:
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
