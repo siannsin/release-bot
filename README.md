@@ -1,4 +1,8 @@
-[![Telegram Chat](https://img.shields.io/static/v1?label=Bot&message=release-bot&color=29a1d4&logo=telegram)](https://t.me/janisreleasebot) [![Python 3.12](https://img.shields.io/badge/python-3.12-x.svg)](https://www.python.org/downloads/release/python-312/)[![GitHub license](https://img.shields.io/github/license/JanisV/release-bot.svg)](https://github.com/JanisV/release-bot/blob/main/LICENSE)[![Latest build](https://github.com/JanisV/release-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/JanisV/release-bot/pkgs/container/release-bot)[![Maintainability](https://api.codeclimate.com/v1/badges/b75abdb47ff5ec2cc5cf/maintainability)](https://codeclimate.com/github/JanisV/release-bot/maintainability)
+[![Telegram Chat](https://img.shields.io/static/v1?label=Bot&message=release-bot&color=29a1d4&logo=telegram)](https://t.me/janisreleasebot)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-x.svg)](https://www.python.org/downloads/release/python-312/)
+[![GitHub license](https://img.shields.io/github/license/JanisV/release-bot.svg)](https://github.com/JanisV/release-bot/blob/main/LICENSE)
+[![Latest build](https://github.com/JanisV/release-bot/actions/workflows/docker.yml/badge.svg)](https://github.com/JanisV/release-bot/pkgs/container/release-bot)
+[![Maintainability](https://api.codeclimate.com/v1/badges/b75abdb47ff5ec2cc5cf/maintainability)](https://codeclimate.com/github/JanisV/release-bot/maintainability)
 
 # release-bot - a Telegram bot that notifies you of new GitHub releases
 
