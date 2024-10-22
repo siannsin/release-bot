@@ -35,7 +35,7 @@ Other similar tools:
 `/editlist` - show and edit your subscription  
 `/starred username` - subscribe to user's starred repos  
 `/starred` - unsubscribe from user's starred repos  
-`/settings` - change ouput format  
+`/settings` - change output format  
 `/stats` - basic server statistics
 
 ## Stack
@@ -57,17 +57,18 @@ Using docker compose:
 
 ```yaml
 services:
-  container_name: release-bot
-  image: ghcr.io/janisv/release-bot:latest
-  restart: unless-stopped
-  environment:
-    - TELEGRAM_BOT_TOKEN=<telegram_token>
-    #- GITHUB_TOKEN=<github_token> # optional
-    #- SITE_URL=https://<your_domain_name> # optional
-  ports:
-    - 5000:5000
-  volumes:
-    - /path/to/data:/app/data
+  release-bot:
+    container_name: release-bot
+    image: ghcr.io/janisv/release-bot:latest
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=<telegram_token>
+      #- GITHUB_TOKEN=<github_token> # optional
+      #- SITE_URL=https://<your_domain_name> # optional
+    ports:
+      - 5000:5000
+    volumes:
+      - /path/to/data:/app/data
 ```
 
 or docker run:
