@@ -14,8 +14,8 @@ async def index():
             'Source code available at <a href="https://github.com/JanisV/release-bot">release-bot</a>')
 
 
-@app.route('/stat')
-async def stat():
+@app.route('/stats')
+async def stats():
     users = Chat.query.count()
     repos = Repo.query.count()
 
