@@ -65,7 +65,7 @@ def format_release_message(chat, repo, release):
     return message
 
 
-@scheduler.task('interval', id='poll_github', hours=1)
+@scheduler.task('cron', id='poll_github', hour='*')
 def poll_github():
     with scheduler.app.app_context():
         for repo_obj in models.Repo.query.all():
@@ -145,7 +145,7 @@ def poll_github():
                         db.session.commit()
 
 
-@scheduler.task('interval', id='poll_github_user', days=1)
+@scheduler.task('cron', id='poll_github_user', hour='*/8')
 def poll_github_user():
     with scheduler.app.app_context():
         for chat in models.Chat.query.filter(models.Chat.github_username.is_not(None)).all():
