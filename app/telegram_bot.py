@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import threading
+import urllib.parse
 from itertools import batched
 
 import github
@@ -371,8 +372,9 @@ class TelegramBot(object):
 
         return resp.status, repo_name
 
-    def _npm2github(self, project):
-        resp = urllib3.request("GET", f"https://api.npms.io/v2/package/{project}")
+    def _npm2github(self, package_name):
+        package_name_quoted = urllib.parse.quote(package_name, safe='')
+        resp = urllib3.request("GET", f"https://api.npms.io/v2/package/{package_name_quoted}")
         repo_name = None
         if resp.status == 200:
             npm_data = json.loads(resp.data.decode('utf-8'))
@@ -408,11 +410,11 @@ class TelegramBot(object):
                 return
         elif npm_link_pattern.search(update.message.text):
             link_groups = npm_link_pattern.search(update.message.text)
-            project = link_groups.group(1)
-            status, repo_name = self._npm2github(project)
+            package_name = link_groups.group(1)
+            status, repo_name = self._npm2github(package_name)
             if status == 200:
                 if not repo_name:
-                    await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
+                    await update.message.reply_text(f"Project {package_name} has not link to GitHub repository.")
                     return
             else:
                 await update.message.reply_text("Error: Invalid repo.")
