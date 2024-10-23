@@ -371,6 +371,26 @@ class TelegramBot(object):
 
         return resp.status, repo_name
 
+    def _npm2github(self, project):
+        resp = urllib3.request("GET", f"https://api.npms.io/v2/package/{project}")
+        repo_name = None
+        if resp.status == 200:
+            npm_data = json.loads(resp.data.decode('utf-8'))
+            if ("repository" in npm_data["collected"]["metadata"]["links"] and
+                    github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])):
+                link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])
+                repo_name = link_groups.group(1)
+            elif ("homepage" in npm_data["collected"]["metadata"]["links"] and
+                  github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["homepage"])):
+                link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["homepage"])
+                repo_name = link_groups.group(1)
+            elif ("homepage" in npm_data["collected"]["metadata"]["links"] and
+                  github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])):
+                link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])
+                repo_name = link_groups.group(1)
+
+        return resp.status, repo_name
+
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo"""
         user = update.effective_user
@@ -389,18 +409,9 @@ class TelegramBot(object):
         elif npm_link_pattern.search(update.message.text):
             link_groups = npm_link_pattern.search(update.message.text)
             project = link_groups.group(1)
-            resp = urllib3.request("GET", f"https://api.npms.io/v2/package/{project}")
-            if resp.status == 200:
-                npm_data = json.loads(resp.data.decode('utf-8'))
-                if ("repository" in npm_data["collected"]["metadata"]["links"] and
-                        github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])):
-                    link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["repository"])
-                    repo_name = link_groups.group(1)
-                elif ("homepage" in npm_data["collected"]["metadata"]["links"] and
-                        github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["homepage"])):
-                    link_groups = github_link_pattern.search(npm_data["collected"]["metadata"]["links"]["homepage"])
-                    repo_name = link_groups.group(1)
-                else:
+            status, repo_name = self._npm2github(project)
+            if status == 200:
+                if not repo_name:
                     await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
                     return
             else:
