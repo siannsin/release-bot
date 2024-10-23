@@ -12,7 +12,7 @@ If you don't need a local installation you can use public bot, avalaible at http
 
 ## Alternatives
 
-This bot is inspired by [new(releases)](https://newreleases.io/) and [release-bot](https://github.com/chofnar/release-bot).
+This bot is inspired by [new(releases)](https://newreleases.io/), [Github releases notify bot](https://github.com/pyatyispyatil/github-releases-notify-bot) and [release-bot](https://github.com/chofnar/release-bot).
 
 Other similar tools:
 
@@ -21,6 +21,7 @@ Other similar tools:
 
 ## Features
 
+- Easy subscription to repo by owner/name, GitHub/PyPI/npm URL or uploading requirements.txt or package.json file
 - Rich markdown formatting for release note
 - Auto subscription to starred repos
 - Ready for self-hosting, has docker image
@@ -31,8 +32,9 @@ Other similar tools:
 
 `/start` - show welcome message  
 `/about` - information about this bot  
-`/list` - show your subscription  
-`/editlist` - show and edit your subscription  
+`/help` - brief usage info  
+`/list` - show your subscriptions  
+`/editlist` - show and edit your subscriptions  
 `/starred username` - subscribe to user's starred repos  
 `/starred` - unsubscribe from user's starred repos  
 `/settings` - change output format  
