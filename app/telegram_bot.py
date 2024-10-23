@@ -443,23 +443,39 @@ class TelegramBot(object):
         if update.message.document.file_size > MAX_UPLOADED_FILE_SIZE:
             await update.message.reply_text("I can't process too big file.")
             return
-        if update.message.document.file_name != "requirements.txt":
+        if update.message.document.file_name == "requirements.txt":
+            file = await context.bot.get_file(update.message.document)
+            data = await file.download_as_bytearray()
+            decoded_string = data.decode("utf-8", errors='replace')
+            for req in requirements.parse(decoded_string):
+                status, repo_name = self._pypi2github(req.name)
+                if status == 200 and repo_name:
+                    try:
+                        repo = github_obj.get_repo(repo_name)
+                    except github.GithubException as e:
+                        print("Github Exception in download_file", e)
+                        continue
+
+                    await self.add_repo(user, repo, update.get_bot(), True)
+        elif update.message.document.file_name == "package.json":
+            file = await context.bot.get_file(update.message.document)
+            data = await file.download_as_bytearray()
+            decoded_string = data.decode("utf-8", errors='replace')
+            json_data = json.loads(decoded_string)
+            if "dependencies" in json_data:
+                for package in json_data["dependencies"].keys():
+                    status, repo_name = self._npm2github(package)
+                    if status == 200 and repo_name:
+                        try:
+                            repo = github_obj.get_repo(repo_name)
+                        except github.GithubException as e:
+                            print("Github Exception in download_file", e)
+                            continue
+
+                        await self.add_repo(user, repo, update.get_bot(), True)
+        else:
             await update.message.reply_text("I don't know this file format.")
             return
-
-        file = await context.bot.get_file(update.message.document)
-        data = await file.download_as_bytearray()
-        decoded_string = data.decode("utf-8", errors='replace')
-        for req in requirements.parse(decoded_string):
-            status, repo_name = self._pypi2github(req.name)
-            if status == 200 and repo_name:
-                try:
-                    repo = github_obj.get_repo(repo_name)
-                except github.GithubException as e:
-                    print("Github Exception in download_file", e)
-                    continue
-
-                await self.add_repo(user, repo, update.get_bot(), True)
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
