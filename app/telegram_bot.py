@@ -61,6 +61,7 @@ class TelegramBot(object):
 
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("about", self.about_command))
+        self.application.add_handler(CommandHandler("help", self.help_command))
         self.application.add_handler(CommandHandler("list", self.list_command))
         self.application.add_handler(CommandHandler("editlist", self.edit_list_command))
         self.application.add_handler(CommandHandler("starred", self.starred_command))
@@ -83,6 +84,23 @@ class TelegramBot(object):
         await update.message.reply_text(
             f"release-bot - a telegram bot for GitHub releases v{__version__}\n"
             "Source code available at https://github.com/JanisV/release-bot"
+        )
+
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Send a message when the command /help is issued."""
+        await update.message.reply_text(
+            "For subscribe to a new GitHub releases send a message containing owner and name of repo (owner/name), "
+            "GitHub/PyPI/npm URL or upload requirements.txt or package.json file.\n\n"
+            "Available commands:\n"
+            "/start - show welcome message\n"
+            "/about - information about this bot\n"
+            "/help - brief usage info\n"
+            "/list - show your subscriptions\n"
+            "/editlist - show and edit your subscriptions\n"
+            "/starred username - subscribe to user's starred repos\n"
+            "/starred - unsubscribe from user's starred repos\n"
+            "/settings - change output format\\n"
+            "/stats - basic server statistics"
         )
 
     async def list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
