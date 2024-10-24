@@ -81,7 +81,6 @@ def poll_github():
                 repo = github_obj.get_repo(repo_obj.id)
             except github.UnknownObjectException as e:
                 message = f"GitHub repo {repo_obj.full_name} has been deleted"
-
                 for chat in repo_obj.chats:
                     try:
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
@@ -90,13 +89,30 @@ def poll_github():
                     except telegram.error.Forbidden as e:
                         pass
 
-                scheduler.app.logger.info(f"Delete deleted GitHub repo {repo_obj.full_name}")
+                scheduler.app.logger.info(message)
                 db.session.delete(repo_obj)
                 db.session.commit()
                 continue
             except github.GithubException as e:
                 scheduler.app.logger.error(f"GithubException for {repo_obj.full_name} in poll_github: {e}")
                 continue
+
+            if repo.archived and not repo_obj.archived:
+                message = f"GitHub repo {repo_obj.full_name} has been archived"
+                for chat in repo_obj.chats:
+                    try:
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        pass
+
+                scheduler.app.logger.info(message)
+                repo_obj.archived = repo.archived
+                db.session.commit()
+            elif not repo.archived and repo_obj.archived:
+                repo_obj.archived = repo.archived
+                db.session.commit()
 
             has_release = False
             has_tag = False

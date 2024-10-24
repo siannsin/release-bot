@@ -169,6 +169,7 @@ class TelegramBot(object):
                     full_name=repo.full_name,
                     description=repo.description,
                     link=repo.html_url,
+                    archived=repo.archived,
                 )
                 try:
                     release = repo.get_latest_release()
@@ -195,7 +196,17 @@ class TelegramBot(object):
                 repo_obj.chats.append(chat)
                 db.session.commit()
 
-                if repo_obj.current_release_id:
+                if repo_obj.archived:
+                    await bot.send_message(
+                        chat_id=chat.id,
+                        text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
+                             f"but it is archived",
+                        parse_mode=ParseMode.HTML,
+                        link_preview_options=LinkPreviewOptions(
+                            url=repo.html_url,
+                            prefer_small_media=True)
+                    )
+                elif repo_obj.current_release_id:
                     await bot.send_message(
                         chat_id=chat.id,
                         text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",

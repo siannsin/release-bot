@@ -24,6 +24,7 @@ class Repo(db.Model):
     link = db.Column(db.String)
     current_tag = db.Column(db.String)
     current_release_id = db.Column(db.Integer)
+    archived = db.Column(db.Boolean)
     created_at = db.Column(db.DateTime, default=aware_utcnow)
 
     chats = db.relationship('Chat', secondary='chat_repo', back_populates='repos')
