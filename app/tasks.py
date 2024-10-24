@@ -80,6 +80,16 @@ def poll_github():
                 scheduler.app.logger.info(f"Poll GitHub repo {repo_obj.full_name}")
                 repo = github_obj.get_repo(repo_obj.id)
             except github.UnknownObjectException as e:
+                message = f"GitHub repo {repo_obj.full_name} has been deleted"
+
+                for chat in repo_obj.chats:
+                    try:
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        pass
+
                 scheduler.app.logger.info(f"Delete deleted GitHub repo {repo_obj.full_name}")
                 db.session.delete(repo_obj)
                 db.session.commit()
