@@ -22,12 +22,11 @@ class Repo(db.Model):
     full_name = db.Column(db.String)
     description = db.Column(db.String)
     link = db.Column(db.String)
-    current_tag = db.Column(db.String)
-    current_release_id = db.Column(db.Integer)
     archived = db.Column(db.Boolean)
     created_at = db.Column(db.DateTime, default=aware_utcnow)
 
     chats = db.relationship('Chat', secondary='chat_repo', back_populates='repos')
+    releases = db.relationship('Release', back_populates='repos', cascade="all, delete-orphan")
 
     def is_orphan(self):
         # TODO: Use SQL COUNT instead Python len
@@ -37,3 +36,17 @@ class Repo(db.Model):
 class ChatRepo(db.Model):
     chat_id = db.Column(db.Integer, db.ForeignKey('chat.id'), primary_key=True)
     repo_id = db.Column(db.Integer, db.ForeignKey('repo.id'), primary_key=True)
+    process_pre_releases = db.Column(db.Boolean, default=True, server_default=db.sql.True_())
+
+
+class Release(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    release_id = db.Column(db.Integer)
+    tag_name = db.Column(db.String)
+    release_date = db.Column(db.DateTime)
+    link = db.Column(db.String)
+    pre_release = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=aware_utcnow)
+
+    repo_id = db.Column(db.ForeignKey('repo.id'))
+    repos = db.relationship('Repo', back_populates='releases')

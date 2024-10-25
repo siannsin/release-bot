@@ -171,13 +171,7 @@ class TelegramBot(object):
                     link=repo.html_url,
                     archived=repo.archived,
                 )
-                try:
-                    release = repo.get_latest_release()
-                    repo_obj.current_tag = release.tag_name
-                    repo_obj.current_release_id = release.id
-                except github.GithubException as e:
-                    # Repo has no releases yet
-                    pass
+                # TODO: Store latest release
 
                 db.session.add(repo_obj)
                 db.session.commit()
