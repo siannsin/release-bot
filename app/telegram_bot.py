@@ -127,9 +127,13 @@ class TelegramBot(object):
             chat = get_or_create_chat(db.session, user)
             for i, repo in enumerate(chat.repos):
                 repo_name = repo.full_name.split('/')[1]
-                if repo.current_tag:
-                    repo_current_tag = repo.current_tag
-                    repo_current_tag_url = f"{repo.link}/releases/{repo.current_tag}"
+                latest_release = repo.get_latest_release()
+                if latest_release:
+                    repo_current_tag = latest_release.tag_name
+                    if repo_current_tag.link:
+                        repo_current_tag_url = repo_current_tag.link
+                    else:
+                        repo_current_tag_url = f"{repo.link}/releases/tag/{repo_current_tag}"
                 else:
                     repo_current_tag = "N/A"
                     repo_current_tag_url = f"{repo.link}/releases"

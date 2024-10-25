@@ -32,6 +32,12 @@ class Repo(db.Model):
         # TODO: Use SQL COUNT instead Python len
         return len(self.chats) == 0
 
+    def get_latest_release(self):
+        if self.releases:
+            return self.releases[-1]
+        else:
+            return None
+
 
 class ChatRepo(db.Model):
     chat_id = db.Column(db.Integer, db.ForeignKey('chat.id'), primary_key=True)
