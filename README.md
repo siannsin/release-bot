@@ -10,6 +10,8 @@ This is a Telegram bot that monitors the releases of given repos, sending messag
 
 If you don't need a local installation you can use public bot, avalaible at https://t.me/janisreleasebot.
 
+![2024_10_25_10_17_28_dev_release_bot](https://github.com/user-attachments/assets/7587a21e-72c3-4462-9b19-d321f85c68dc)
+
 ## Alternatives
 
 This bot is inspired by [new(releases)](https://newreleases.io/), [Github releases notify bot](https://github.com/pyatyispyatil/github-releases-notify-bot) and [release-bot](https://github.com/chofnar/release-bot).
