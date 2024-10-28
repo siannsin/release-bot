@@ -131,8 +131,8 @@ class TelegramBot(object):
                 latest_release = repo.get_latest_release()
                 if latest_release:
                     repo_current_tag = latest_release.tag_name
-                    if repo_current_tag.link:
-                        repo_current_tag_url = repo_current_tag.link
+                    if latest_release.link:
+                        repo_current_tag_url = latest_release.link
                     else:
                         repo_current_tag_url = f"{repo.link}/releases/tag/{repo_current_tag}"
                 else:
