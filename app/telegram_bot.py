@@ -206,7 +206,7 @@ class TelegramBot(object):
                             url=repo.html_url,
                             prefer_small_media=True)
                     )
-                elif repo_obj.current_release_id:
+                elif repo_obj.get_latest_release():
                     await bot.send_message(
                         chat_id=chat.id,
                         text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
