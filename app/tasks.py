@@ -15,13 +15,6 @@ from app.repo_engine import store_latest_release, format_release_message
 def poll_github():
     with scheduler.app.app_context():
         for repo_obj in models.Repo.query.all():
-            #  TODO: Use sqlalchemy_utils.auto_delete_orphans
-            if repo_obj.is_orphan():
-                scheduler.app.logger.info(f"Delete orphaned GitHub repo {repo_obj.full_name}")
-                db.session.delete(repo_obj)
-                db.session.commit()
-                continue
-
             try:
                 scheduler.app.logger.info(f"Poll GitHub repo {repo_obj.full_name}")
                 repo = github_obj.get_repo(repo_obj.id)
@@ -116,3 +109,15 @@ def poll_github_user():
                 scheduler.app.logger.info('Bot was blocked by the user')
                 db.session.delete(chat)
                 db.session.commit()
+
+
+@scheduler.task('cron', id='clear_db', week='*')
+def clear_db():
+    with scheduler.app.app_context():
+        for repo_obj in models.Repo.query.all():
+            #  TODO: Use sqlalchemy_utils.auto_delete_orphans
+            if repo_obj.is_orphan():
+                scheduler.app.logger.info(f"Delete orphaned GitHub repo {repo_obj.full_name}")
+                db.session.delete(repo_obj)
+                db.session.commit()
+                continue
