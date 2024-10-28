@@ -8,6 +8,7 @@ from telegram.constants import ParseMode
 
 from app import models
 from app import github_obj, db, telegram_bot, scheduler
+from app.models import ChatRepo
 from app.repo_engine import store_latest_release, format_release_message
 
 
@@ -53,7 +54,7 @@ def poll_github():
                 repo_obj.archived = repo.archived
                 db.session.commit()
 
-            release_or_tag = store_latest_release(db.session, repo, repo_obj)
+            release_or_tag, prerelease = store_latest_release(db.session, repo, repo_obj)
             if isinstance(release_or_tag, GitRelease):
                 release = release_or_tag
 
@@ -86,6 +87,32 @@ def poll_github():
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
                                                               parse_mode=ParseMode.HTML,
+                                                              disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        scheduler.app.logger.info('Bot was blocked by the user')
+                        db.session.delete(chat)
+                        db.session.commit()
+            if isinstance(prerelease, GitRelease):
+                release = prerelease
+
+                for chat in repo_obj.chats:
+                    chat_repo = db.session.query(ChatRepo) \
+                        .filter(ChatRepo.chat_id == chat.id).filter(ChatRepo.repo_id == repo_obj.id) \
+                        .first()
+                    if not chat_repo.process_pre_releases:
+                        break
+
+                    message = format_release_message(chat, repo, release)
+
+                    if chat.release_note_format in ("quote", "pre"):
+                        parse_mode = ParseMode.HTML
+                    else:
+                        parse_mode = ParseMode.MARKDOWN_V2
+
+                    try:
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              parse_mode=parse_mode,
                                                               disable_web_page_preview=True))
                     except telegram.error.Forbidden as e:
                         scheduler.app.logger.info('Bot was blocked by the user')

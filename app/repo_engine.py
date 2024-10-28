@@ -4,9 +4,8 @@ import github
 from telegram.constants import MessageLimit
 from telegramify_markdown import markdownify
 
+from app import app
 from app.models import Release, Repo
-
-PROCESS_PRE_RELEASES = False
 
 github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
                                             "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|</?dl>|</?dt>|"
@@ -63,38 +62,64 @@ def format_release_message(chat, repo, release):
 
 
 def store_latest_release(session, repo, repo_obj):
-    has_release = False
-    has_tag = False
+    release = None
+    prerelease = None
+    tag = None
+
+    if app.config['PROCESS_PRE_RELEASES']:
+        if repo.get_releases().totalCount > 0:
+            prerelease = repo.get_releases()[0]
+            if not prerelease.prerelease:
+                prerelease = None
+
     try:
-        if PROCESS_PRE_RELEASES:
-            if repo.get_releases().totalCount > 0:
-                release = repo.get_releases()[0]
-                has_release = True
-        else:
-            release = repo.get_latest_release()
-            has_release = True
+        release = repo.get_latest_release()
     except github.GithubException as e:
         # Repo has no releases yet
         if repo.get_tags().totalCount > 0:
             tag = repo.get_tags()[0]
-            has_tag = True
 
-    if has_release:
-        release_obj = session.query(Release).join(Repo) \
-            .filter(Repo.id == repo_obj.id).filter(Release.release_id == release.id) \
-            .first()
-        if not release_obj:
-            release_obj = Release(
-                release_id=release.id,
-                tag_name=release.tag_name,
-                release_date=release.published_at,
-                link=release.html_url,
-            )
-            repo_obj.releases.append(release_obj)
-            session.commit()
+    if release or prerelease:
+        if release:
+            release_obj = session.query(Release).join(Repo) \
+                .filter(Repo.id == repo_obj.id).filter(Release.release_id == release.id) \
+                .first()
+            if release_obj:
+                if release_obj.pre_release:
+                    release_obj.pre_release = release.prerelease
+                    session.commit()
+                else:
+                    release = None
+            else:
+                release_obj = Release(
+                    release_id=release.id,
+                    tag_name=release.tag_name,
+                    release_date=release.published_at,
+                    link=release.html_url,
+                    pre_release=release.prerelease,
+                )
+                repo_obj.releases.append(release_obj)
+                session.commit()
 
-            return release
-    elif has_tag:
+        if prerelease:
+            release_obj = session.query(Release).join(Repo) \
+                .filter(Repo.id == repo_obj.id).filter(Release.release_id == prerelease.id) \
+                .first()
+            if not release_obj:
+                release_obj = Release(
+                    release_id=prerelease.id,
+                    tag_name=prerelease.tag_name,
+                    release_date=prerelease.published_at,
+                    link=prerelease.html_url,
+                    pre_release=prerelease.prerelease,
+                )
+                repo_obj.releases.append(release_obj)
+                session.commit()
+            else:
+                prerelease = None
+
+        return release, prerelease
+    elif tag:
         release_obj = session.query(Release).join(Repo) \
             .filter(Repo.id == repo_obj.id).filter(Release.tag_name == tag.name) \
             .first()
@@ -105,6 +130,6 @@ def store_latest_release(session, repo, repo_obj):
             )
             repo_obj.releases.append(release_obj)
             session.commit()
-            return tag
+            return tag, None
 
-    return None
+    return None, None
