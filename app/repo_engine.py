@@ -1,8 +1,65 @@
+import re
+
 import github
+from telegram.constants import MessageLimit
+from telegramify_markdown import markdownify
 
 from app.models import Release, Repo
 
 PROCESS_PRE_RELEASES = False
+
+github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
+                                            "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|</?dl>|</?dt>|"
+                                            "</?dd>|</?em>|<!--.*?-->",
+                                            flags=re.DOTALL)
+github_img_html_tag_pattern = re.compile("<img .*?src=\"(.*?)\".*?>")
+
+
+def format_release_message(chat, repo, release):
+    release_body = release.body
+    release_body = github_extra_html_tags_pattern.sub(
+        "",
+        release_body
+    )
+    release_body = github_img_html_tag_pattern.sub(
+        "\\1",
+        release_body
+    )
+    if len(release_body) > MessageLimit.MAX_TEXT_LENGTH - 256:
+        release_body = f"{release_body[:MessageLimit.MAX_TEXT_LENGTH - 256]}\n-=SKIPPED=-"
+
+    current_tag = release.tag_name
+    if (release.title == current_tag or
+            release.title == f"v{current_tag}" or
+            f"v{release.title}" == current_tag):
+        # Skip release title when it is equal to tag
+        release_title = ""
+    else:
+        release_title = release.title
+
+    if chat.release_note_format == "quote":
+        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                   f"<b>{release_title}</b>"
+                   f" <code>{current_tag}</code>"
+                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                   f"<blockquote>{release_body}</blockquote>"
+                   f"<a href='{release.html_url}'>release note...</a>")
+    elif chat.release_note_format == "pre":
+        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                   f"<b>{release_title}</b>"
+                   f" <code>{current_tag}</code>"
+                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                   f"<pre>{release_body}</pre>"
+                   f"<a href='{release.html_url}'>release note...</a>")
+    else:
+        message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
+                              f"{f"*{release_title}*" if release_title else ""}"
+                              f" `{current_tag}`"
+                              f"{" _pre-release_" if release.prerelease else ""}\n\n"
+                              f"{release_body + "\n\n" if release_body else ""}"
+                              f"[release note...]({release.html_url})")
+
+    return message
 
 
 def store_latest_release(session, repo, repo_obj):
