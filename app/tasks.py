@@ -3,14 +3,14 @@ import re
 
 import github
 import telegram
+from github.GitRelease import GitRelease
+from github.Tag import Tag
 from telegram.constants import ParseMode, MessageLimit
 from telegramify_markdown import markdownify
 
 from app import models
 from app import github_obj, db, telegram_bot, scheduler
-from app.models import Release, Repo
-
-PROCESS_PRE_RELEASES = False
+from app.repo_engine import store_latest_release
 
 github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
                                             "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|</?dl>|</?dt>|"
@@ -115,78 +115,44 @@ def poll_github():
                 repo_obj.archived = repo.archived
                 db.session.commit()
 
-            has_release = False
-            has_tag = False
-            try:
-                if PROCESS_PRE_RELEASES:
-                    if repo.get_releases().totalCount > 0:
-                        release = repo.get_releases()[0]
-                else:
-                    release = repo.get_latest_release()
-                has_release = True
-            except github.GithubException as e:
-                # Repo has no releases yet
-                if repo.get_tags().totalCount > 0:
-                    tag = repo.get_tags()[0]
-                    has_tag = True
+            release_or_tag = store_latest_release(db.session, repo, repo_obj)
+            if isinstance(release_or_tag, GitRelease):
+                release = release_or_tag
 
-            if has_release:
-                release_obj = db.session.query(Release).join(Repo) \
-                    .filter(Repo.id == repo_obj.id).filter(Release.release_id == release.id) \
-                    .first()
-                if not release_obj or True:
-                    release_obj = Release(
-                        release_id=release.id,
-                        tag_name=release.tag_name,
-                        release_date=release.published_at,
-                        link=release.html_url,
-                    )
-                    repo_obj.releases.append(release_obj)
-                    db.session.commit()
+                for chat in repo_obj.chats:
+                    message = format_release_message(chat, repo, release)
 
-                    for chat in repo_obj.chats:
-                        message = format_release_message(chat, repo, release)
+                    if chat.release_note_format in ("quote", "pre"):
+                        parse_mode = ParseMode.HTML
+                    else:
+                        parse_mode = ParseMode.MARKDOWN_V2
 
-                        if chat.release_note_format in ("quote", "pre"):
-                            parse_mode = ParseMode.HTML
-                        else:
-                            parse_mode = ParseMode.MARKDOWN_V2
+                    try:
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              parse_mode=parse_mode,
+                                                              disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        scheduler.app.logger.info('Bot was blocked by the user')
+                        db.session.delete(chat)
+                        db.session.commit()
+            elif isinstance(release_or_tag, Tag):
+                tag = release_or_tag
 
-                        try:
-                            asyncio.run(telegram_bot.send_message(chat_id=chat.id,
-                                                                  text=message,
-                                                                  parse_mode=parse_mode,
-                                                                  disable_web_page_preview=True))
-                        except telegram.error.Forbidden as e:
-                            scheduler.app.logger.info('Bot was blocked by the user')
-                            db.session.delete(chat)
-                            db.session.commit()
-            elif has_tag:
-                release_obj = db.session.query(Release).join(Repo) \
-                    .filter(Repo.id == repo_obj.id).filter(Release.tag_name == tag.name) \
-                    .first()
-                if not release_obj:
-                    release_obj = Release(
-                        tag_name=tag.name,
-                        release_date=tag.last_modified_datetime,
-                    )
-                    repo_obj.releases.append(release_obj)
-                    db.session.commit()
+                # TODO: Use tag.message as release_body text
+                message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
+                           f"<code>{tag.name}</code>")
 
-                    # TODO: Use tag.message as release_body text
-                    message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                               f"<code>{release_obj.tag_name}</code>")
-
-                    for chat in repo_obj.chats:
-                        try:
-                            asyncio.run(telegram_bot.send_message(chat_id=chat.id,
-                                                                  text=message,
-                                                                  parse_mode=ParseMode.HTML,
-                                                                  disable_web_page_preview=True))
-                        except telegram.error.Forbidden as e:
-                            scheduler.app.logger.info('Bot was blocked by the user')
-                            db.session.delete(chat)
-                            db.session.commit()
+                for chat in repo_obj.chats:
+                    try:
+                        asyncio.run(telegram_bot.send_message(chat_id=chat.id,
+                                                              text=message,
+                                                              parse_mode=ParseMode.HTML,
+                                                              disable_web_page_preview=True))
+                    except telegram.error.Forbidden as e:
+                        scheduler.app.logger.info('Bot was blocked by the user')
+                        db.session.delete(chat)
+                        db.session.commit()
 
 
 @scheduler.task('cron', id='poll_github_user', hour='*/8')

@@ -23,6 +23,7 @@ from telegram.ext import (
 from app import github_obj, db
 from app._version import __version__
 from app.models import Chat, Repo, ChatRepo
+from app.repo_engine import store_latest_release
 
 MAX_UPLOADED_FILE_SIZE = 1024 * 10  # 10kB
 
@@ -175,7 +176,8 @@ class TelegramBot(object):
                     link=repo.html_url,
                     archived=repo.archived,
                 )
-                # TODO: Store latest release
+
+                store_latest_release(db.session, repo, repo_obj)
 
                 db.session.add(repo_obj)
                 db.session.commit()
