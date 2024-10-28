@@ -3,7 +3,7 @@ from http import HTTPStatus
 from flask import Response, request
 
 from app import telegram_bot, app
-from app.models import Chat, Repo
+from app.models import Chat, Repo, Release
 
 
 @app.route('/')
@@ -18,10 +18,12 @@ async def index():
 async def stats():
     users = Chat.query.count()
     repos = Repo.query.count()
+    releases = Release.query.count()
 
     statistics = {
         "users": users,
         "repos": repos,
+        "releases": releases,
     }
     return statistics
 
