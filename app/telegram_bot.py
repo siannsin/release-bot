@@ -22,7 +22,7 @@ from telegram.ext import (
 
 from app import github_obj, db
 from app._version import __version__
-from app.models import Chat, Repo, ChatRepo
+from app.models import Chat, Repo, ChatRepo, Release
 from app.repo_engine import store_latest_release
 
 MAX_UPLOADED_FILE_SIZE = 1024 * 10  # 10kB
@@ -393,13 +393,14 @@ class TelegramBot(object):
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /stats is issued."""
-        with self.app.app_context():
+        with (self.app.app_context()):
+            release_count = db.session.query(Release).count()
             repo_count = db.session.query(Repo).count()
             user_count = db.session.query(Chat).count()
             subscription_count = db.session.query(ChatRepo).count()
 
-            # text = f"I have to update {} releases for {} repos via {} subscriptions added by {} users."
-            text = f"I have to update {repo_count} repos via {subscription_count} subscriptions added by {user_count} users."
+            text = (f"I have to update {release_count} releases for {repo_count} repos via {subscription_count} "
+                    f"subscriptions added by {user_count} users.")
 
         await update.message.reply_text(text)
 
