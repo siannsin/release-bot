@@ -138,13 +138,18 @@ class TelegramBot(object):
                 else:
                     repo_current_tag = "N/A"
                     repo_current_tag_url = f"{repo.link}/releases"
+                chat_repo = db.session.query(ChatRepo) \
+                    .filter(ChatRepo.chat_id == chat.id).filter(ChatRepo.repo_id == repo.id) \
+                    .first()
+                process_pre_releases = "✔️" if chat_repo.process_pre_releases else "❌"
                 keyboard.append([InlineKeyboardButton(repo_name, url=repo.link),
                                  InlineKeyboardButton(repo_current_tag, url=repo_current_tag_url),
+                                 InlineKeyboardButton(f"Pre: {process_pre_releases}️️", callback_data=f"pre-{repo.id}"),
                                  InlineKeyboardButton("🗑️", callback_data=repo.id)])
 
         if keyboard:
             btn_per_line = len(keyboard[0])
-            for split_keyboard in batched(keyboard, InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER // btn_per_line):
+            for split_keyboard in batched(keyboard, (InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER-1) // btn_per_line):
                 split_keyboard_list = list(split_keyboard)
                 split_keyboard_list.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
                 reply_markup = InlineKeyboardMarkup(split_keyboard_list)
@@ -304,6 +309,27 @@ class TelegramBot(object):
                 db.session.commit()
 
             await query.edit_message_text(text=f"Release note format changed.")
+        elif query.data.startswith("pre-"):
+            repo_id = query.data.split("-", 1)[1]
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
+                repo_obj = db.session.get(Repo, repo_id)
+                if not repo_obj:
+                    await update.message.reply_text("Error: Repo not founded.")
+                    return
+
+                chat_repo = db.session.query(ChatRepo) \
+                    .filter(ChatRepo.chat_id == chat.id).filter(ChatRepo.repo_id == repo_obj.id) \
+                    .first()
+                chat_repo.process_pre_releases = not chat_repo.process_pre_releases
+                db.session.commit()
+
+                if chat_repo.process_pre_releases:
+                    reply_message = f"You are subscribed to repo {repo_obj.full_name} pre-releases."
+                else:
+                    reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
+
+            await query.edit_message_text(text=reply_message)
         else:
             with self.app.app_context():
                 chat = get_or_create_chat(db.session, user)
