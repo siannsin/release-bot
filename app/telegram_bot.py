@@ -9,6 +9,7 @@ import github
 import requirements
 import telegram
 import urllib3
+from sqlalchemy import true
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import InlineKeyboardMarkupLimit, ParseMode
 from telegram.ext import (
@@ -44,6 +45,24 @@ def get_or_create_chat(session, telegram_user):
         session.commit()
 
     return chat
+
+
+def get_latest_chat_release(session, chat, repo):
+    if repo.releases:
+        chat_repo = session.query(ChatRepo) \
+            .filter(ChatRepo.chat_id == chat.id).filter(ChatRepo.repo_id == repo.id) \
+            .first()
+
+        if chat_repo.process_pre_releases:
+            return repo.releases[-1]
+        else:
+            return session.query(Release) \
+                .filter(Release.repo_id == repo.id) \
+                .filter(Release.pre_release != true()) \
+                .order_by(Release.id.desc()) \
+                .first()
+    else:
+        return None
 
 
 class TelegramBot(object):
@@ -128,7 +147,7 @@ class TelegramBot(object):
             chat = get_or_create_chat(db.session, user)
             for i, repo in enumerate(chat.repos):
                 repo_name = repo.full_name.split('/')[1]
-                latest_release = repo.get_latest_release()
+                latest_release = get_latest_chat_release(db.session, chat, repo)
                 if latest_release:
                     repo_current_tag = latest_release.tag_name
                     if latest_release.link:
