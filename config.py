@@ -12,3 +12,4 @@ class Config:
     SQLALCHEMY_ECHO = os.environ.get('SQL_DEBUG', '').lower() in ('true', '1', 't')
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
     MAX_REPOS_PER_CHAT = int(os.environ.get('MAX_REPOS_PER_CHAT', 0))
+    PROCESS_PRE_RELEASES = bool(GITHUB_TOKEN)
