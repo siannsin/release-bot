@@ -69,7 +69,7 @@ def store_latest_release(session, repo, repo_obj):
     if app.config['PROCESS_PRE_RELEASES']:
         if repo.get_releases().totalCount > 0:
             prerelease = repo.get_releases()[0]
-            if not prerelease.prerelease:
+            if not prerelease.prerelease or prerelease.draft:
                 prerelease = None
 
     try:
