@@ -74,6 +74,8 @@ def store_latest_release(session, repo, repo_obj):
 
     try:
         release = repo.get_latest_release()
+        if release.draft:
+            release = None
     except github.GithubException as e:
         # Repo has no releases yet
         if repo.get_tags().totalCount > 0:
