@@ -169,7 +169,7 @@ class TelegramBot(object):
                 keyboard.append([InlineKeyboardButton(repo_name, url=repo.link),
                                  InlineKeyboardButton(repo_current_tag, url=repo_current_tag_url),
                                  InlineKeyboardButton(f"Pre: {process_pre_releases}️️", callback_data=f"pre-{repo.id}"),
-                                 InlineKeyboardButton("🗑️", callback_data=repo.id)])
+                                 InlineKeyboardButton("🗑️", callback_data=f"delete-{repo.id}")])
         return keyboard
 
     def get_repo_keyboard(self, user, buttons, curr_page):
@@ -391,10 +391,11 @@ class TelegramBot(object):
                     reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
 
             await query.edit_message_text(text=reply_message)
-        else:
+        elif query.data.startswith("delete-"):
+            repo_id = query.data.split("-", 1)[1]
             with self.app.app_context():
                 chat = get_or_create_chat(db.session, user)
-                repo_obj = db.session.get(Repo, query.data)
+                repo_obj = db.session.get(Repo, repo_id)
                 if repo_obj:
                     chat.repos.remove(repo_obj)
                     db.session.commit()
