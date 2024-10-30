@@ -176,7 +176,8 @@ class TelegramBot(object):
 
         if keyboard:
             btn_per_line = len(keyboard[0])
-            for split_keyboard in batched(keyboard, (InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER-1) // btn_per_line):
+            for split_keyboard in batched(keyboard,
+                                          (InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER - 1) // btn_per_line):
                 split_keyboard_list = list(split_keyboard)
                 split_keyboard_list.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
                 reply_markup = InlineKeyboardMarkup(split_keyboard_list)
@@ -442,11 +443,11 @@ class TelegramBot(object):
                     link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source"])
                     repo_name = link_groups.group(1)
                 elif ("Source Code" in pypi_data["info"]["project_urls"] and
-                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Source Code"])):
+                      github_link_pattern.search(pypi_data["info"]["project_urls"]["Source Code"])):
                     link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Source Code"])
                     repo_name = link_groups.group(1)
                 elif ("Homepage" in pypi_data["info"]["project_urls"] and
-                        github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
+                      github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])):
                     link_groups = github_link_pattern.search(pypi_data["info"]["project_urls"]["Homepage"])
                     repo_name = link_groups.group(1)
             elif pypi_data["info"]["home_page"] and github_link_pattern.search(pypi_data["info"]["home_page"]):
