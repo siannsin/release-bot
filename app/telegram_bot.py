@@ -127,7 +127,7 @@ class TelegramBot(object):
             "/editlist - show and edit your subscriptions\n"
             "/starred username - subscribe to user's starred repos\n"
             "/starred - unsubscribe from user's starred repos\n"
-            "/settings - change output format\\n"
+            "/settings - change output format\n"
             "/stats - basic server statistics"
         )
 
