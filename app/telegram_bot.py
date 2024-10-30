@@ -146,10 +146,7 @@ class TelegramBot(object):
             link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
 
-    async def edit_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Send a message when the command /editlist is issued."""
-        user = update.effective_user
-
+    def get_repo_buttons(self, user):
         keyboard = []
         with self.app.app_context():
             chat = get_or_create_chat(db.session, user)
@@ -173,17 +170,39 @@ class TelegramBot(object):
                                  InlineKeyboardButton(repo_current_tag, url=repo_current_tag_url),
                                  InlineKeyboardButton(f"Pre: {process_pre_releases}️️", callback_data=f"pre-{repo.id}"),
                                  InlineKeyboardButton("🗑️", callback_data=repo.id)])
+        return keyboard
 
+    def get_repo_keyboard(self, user, buttons, curr_page):
+        keyboard = self.get_repo_buttons(user)
         if keyboard:
-            btn_per_line = len(keyboard[0])
-            for split_keyboard in batched(keyboard,
-                                          (InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER - 1) // btn_per_line):
-                split_keyboard_list = list(split_keyboard)
-                split_keyboard_list.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
-                reply_markup = InlineKeyboardMarkup(split_keyboard_list)
+            btn_per_line = len(buttons[0])
+            lines = (InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER - 3) // btn_per_line
+            split_keyboard_list = list(keyboard[curr_page * lines:(curr_page + 1) * lines])
+            if len(keyboard[curr_page * lines:]) > lines:
+                if curr_page:
+                    split_keyboard_list.append([InlineKeyboardButton("⬅️ Prev", callback_data=f"prev-{curr_page - 1}"),
+                                                InlineKeyboardButton("Cancel", callback_data="cancel"),
+                                                InlineKeyboardButton("Next ➡️", callback_data=f"next-{curr_page + 1}")])
+                else:
+                    split_keyboard_list.append([InlineKeyboardButton("Cancel", callback_data="cancel"),
+                                                InlineKeyboardButton("Next ➡️", callback_data=f"next-{curr_page + 1}")])
+            else:
+                split_keyboard_list.append([InlineKeyboardButton("⬅️ Prev", callback_data=f"prev-{curr_page - 1}"),
+                                            InlineKeyboardButton("Cancel", callback_data="cancel")])
+            reply_markup = InlineKeyboardMarkup(split_keyboard_list)
+            return reply_markup
 
-                await update.message.reply_text("Here's all your added repos with their releases:",
-                                                reply_markup=reply_markup)
+        return None
+
+    async def edit_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Send a message when the command /editlist is issued."""
+        user = update.effective_user
+
+        buttons = self.get_repo_buttons(user)
+        keyboard = self.get_repo_keyboard(user, buttons, 0)
+        if keyboard:
+            await update.message.reply_text("Here's all your added repos with their releases:",
+                                            reply_markup=keyboard)
         else:
             await update.message.reply_text("You are haven't repos yet.")
 
@@ -337,6 +356,20 @@ class TelegramBot(object):
                 db.session.commit()
 
             await query.edit_message_text(text=f"Release note format changed.")
+        elif query.data.startswith("next-"):
+            curr_page = int(query.data.split("-", 1)[1])
+
+            buttons = self.get_repo_buttons(user)
+            keyboard = self.get_repo_keyboard(user, buttons, curr_page)
+            if keyboard:
+                await query.edit_message_reply_markup(keyboard)
+        elif query.data.startswith("prev-"):
+            curr_page = int(query.data.split("-", 1)[1])
+
+            buttons = self.get_repo_buttons(user)
+            keyboard = self.get_repo_keyboard(user, buttons, curr_page)
+            if keyboard:
+                await query.edit_message_reply_markup(keyboard)
         elif query.data.startswith("pre-"):
             repo_id = query.data.split("-", 1)[1]
             with self.app.app_context():
