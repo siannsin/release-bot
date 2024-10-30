@@ -28,7 +28,7 @@ Other similar tools:
 - Auto subscription to starred repos
 - Ready for self-hosting, has docker image
 - Work locally, without white IP and domain name
-- Only Telegram token requred
+- Only Telegram token required
 
 ## Commands
 
