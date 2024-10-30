@@ -92,6 +92,14 @@ class TelegramBot(object):
         self.application.add_handler(MessageHandler(filters.Document.ALL, self.download_file))
         self.application.add_handler(CallbackQueryHandler(self.button))
 
+    async def set_commands(self, application):
+        await application.bot.set_my_commands([('list', "show your subscriptions"),
+                                               ('editlist', "show and edit your subscriptions"),
+                                               ('starred', "subscribe to user's starred repos"),
+                                               ('settings', "change output format"),
+                                               ('about', "information about this bot"),
+                                               ('help', "brief usage info")])
+
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
         await update.message.reply_text(
@@ -578,12 +586,14 @@ class TelegramBot(object):
     async def run_webhook(self):
         await self.application.initialize()
         async with self.application.bot:
+            await self.set_commands(self.application)
             await self.application.bot.set_webhook(url=f"{self.app.config['SITE_URL']}/telegram",
                                                    allowed_updates=Update.ALL_TYPES)
 
     async def run_polling(self):
         async with self.application:
             await self.application.start()
+            await self.set_commands(self.application)
             await self.application.updater.start_polling()
             while True:
                 await asyncio.sleep(1)
