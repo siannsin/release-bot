@@ -90,5 +90,6 @@ jobs:
         with:
           context: .
           push: true
+          platforms: amd64,arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
