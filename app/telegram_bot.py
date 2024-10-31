@@ -174,13 +174,18 @@ class TelegramBot(object):
                 process_pre_releases = "✔️" if chat_repo.process_pre_releases else "❌"
                 keyboard.append([InlineKeyboardButton(repo_name, url=repo.link),
                                  InlineKeyboardButton(repo_current_tag, url=repo_current_tag_url),
-                                 InlineKeyboardButton(f"Pre: {process_pre_releases}️️", callback_data=f"pre-{repo.id}"),
-                                 InlineKeyboardButton("🗑️", callback_data=f"delete-{repo.id}")])
+                                 InlineKeyboardButton(f"Pre: {process_pre_releases}️️",
+                                                      callback_data=f"pre-{curr_page}-{repo.id}"),
+                                 InlineKeyboardButton("🗑️",
+                                                      callback_data=f"delete-{curr_page}-{repo.id}")])
+
+            if not keyboard:
+                return keyboard
 
             assert btn_per_line == len(keyboard[0])
 
-            if len(chat.repos) > lines:
-                if curr_page:
+            if len(chat.repos) > (curr_page + 1) * lines:
+                if curr_page > 0:
                     keyboard.append([InlineKeyboardButton("⬅️ Prev", callback_data=f"prev-{curr_page - 1}"),
                                      InlineKeyboardButton("Cancel", callback_data="cancel"),
                                      InlineKeyboardButton("Next ➡️", callback_data=f"next-{curr_page + 1}")])
@@ -188,8 +193,11 @@ class TelegramBot(object):
                     keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel"),
                                      InlineKeyboardButton("Next ➡️", callback_data=f"next-{curr_page + 1}")])
             else:
-                keyboard.append([InlineKeyboardButton("⬅️ Prev", callback_data=f"prev-{curr_page - 1}"),
-                                 InlineKeyboardButton("Cancel", callback_data="cancel")])
+                if curr_page > 0:
+                    keyboard.append([InlineKeyboardButton("⬅️ Prev", callback_data=f"prev-{curr_page - 1}"),
+                                     InlineKeyboardButton("Cancel", callback_data="cancel")])
+                else:
+                    keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
             keyboard_markup = InlineKeyboardMarkup(keyboard)
             return keyboard_markup
 
@@ -355,17 +363,17 @@ class TelegramBot(object):
 
             await query.edit_message_text(text=f"Release note format changed.")
         elif query.data.startswith("next-"):
-            curr_page = int(query.data.split("-", 1)[1])
-            keyboard = self.get_repo_keyboard(user, curr_page)
+            next_page = int(query.data.split("-", 1)[1])
+            keyboard = self.get_repo_keyboard(user, next_page)
             if keyboard:
                 await query.edit_message_reply_markup(keyboard)
         elif query.data.startswith("prev-"):
-            curr_page = int(query.data.split("-", 1)[1])
-            keyboard = self.get_repo_keyboard(user, curr_page)
+            prev_page = int(query.data.split("-", 1)[1])
+            keyboard = self.get_repo_keyboard(user, prev_page)
             if keyboard:
                 await query.edit_message_reply_markup(keyboard)
         elif query.data.startswith("pre-"):
-            repo_id = query.data.split("-", 1)[1]
+            _, curr_page, repo_id = query.data.split("-", 2)
             with self.app.app_context():
                 chat = get_or_create_chat(db.session, user)
                 repo_obj = db.session.get(Repo, repo_id)
@@ -384,9 +392,13 @@ class TelegramBot(object):
                 else:
                     reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
 
-            await query.edit_message_text(text=reply_message)
+            keyboard = self.get_repo_keyboard(user, int(curr_page))
+            await query.edit_message_reply_markup(keyboard)
+
+            await update.callback_query.get_bot().send_message(user.id, reply_message)
         elif query.data.startswith("delete-"):
-            repo_id = query.data.split("-", 1)[1]
+            _, curr_page, repo_id = query.data.split("-", 2)
+            curr_page = int(curr_page)
             with self.app.app_context():
                 chat = get_or_create_chat(db.session, user)
                 repo_obj = db.session.get(Repo, repo_id)
@@ -398,7 +410,17 @@ class TelegramBot(object):
                 else:
                     reply_message = "Error: Repo not founded."
 
-            await query.edit_message_text(text=reply_message)
+            keyboard = self.get_repo_keyboard(user, curr_page)
+            if keyboard:
+                await query.edit_message_reply_markup(keyboard)
+            else:
+                if curr_page > 0:
+                    keyboard = self.get_repo_keyboard(user, curr_page - 1)
+                    await query.edit_message_reply_markup(keyboard)
+                else:
+                    await query.edit_message_text(text="You no longer have any repos.")
+
+            await update.callback_query.get_bot().send_message(user.id, reply_message)
 
     async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /starred is issued."""
