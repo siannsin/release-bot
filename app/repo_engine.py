@@ -9,7 +9,7 @@ from app.models import Release, Repo
 
 github_extra_html_tags_pattern = re.compile("<p align=\".*?\".*?>|</p>|<a name=\".*?\">|</a>|<picture>.*?</picture>|"
                                             "</?h[1-4]>|</?sub>|</?sup>|</?details>|</?summary>|</?b>|</?dl>|</?dt>|"
-                                            "</?dd>|</?em>|<!--.*?-->",
+                                            "</?dd>|</?em>|</?small>|<!--.*?-->",
                                             flags=re.DOTALL)
 github_img_html_tag_pattern = re.compile("<img .*?src=\"(.*?)\".*?>")
 
