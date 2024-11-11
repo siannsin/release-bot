@@ -34,12 +34,11 @@ pypi_link_pattern = re.compile("https://pypi.org/project/(.+)/")
 npm_link_pattern = re.compile("https://www.npmjs.com/package/(.+)")
 
 
-def get_or_create_chat(session, telegram_user):
-    chat = session.get(Chat, telegram_user.id)
+def get_or_create_chat(session, chat_id):
+    chat = session.get(Chat, chat_id)
     if not chat:
         chat = Chat(
-            id=telegram_user.id,
-            # lang=telegram_user.language_code,
+            id=chat_id,
         )
         session.add(chat)
         session.commit()
@@ -93,7 +92,7 @@ class TelegramBot(object):
         self.application.add_handler(CallbackQueryHandler(self.button))
 
     def _get_chat_id(self, update: Update):
-        chat_id = update.message.chat_id
+        chat_id = update.effective_chat.id
         if not self.app.config['CHAT_ID']:
             return chat_id
         else:
@@ -150,12 +149,10 @@ class TelegramBot(object):
 
     async def list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /list is issued."""
-        if self._get_chat_id(update):
-            user = update.effective_chat
-
+        if chat_id := self._get_chat_id(update):
             with self.app.app_context():
                 text = "Your subscriptions:\n"
-                chat = get_or_create_chat(db.session, user)
+                chat = get_or_create_chat(db.session, chat_id)
                 for i, repo in enumerate(chat.repos):
                     text += f"{i + 1}. <b><a href='{repo.link}'>{repo.full_name}</a></b>\n"
 
@@ -164,13 +161,13 @@ class TelegramBot(object):
                 link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
 
-    def get_repo_keyboard(self, user, curr_page):
+    def get_repo_keyboard(self, chat_id, curr_page):
         btn_per_line = 4
         lines = (InlineKeyboardMarkupLimit.TOTAL_BUTTON_NUMBER - 3) // btn_per_line
 
         keyboard = []
         with self.app.app_context():
-            chat = get_or_create_chat(db.session, user)
+            chat = get_or_create_chat(db.session, chat_id)
             if len(chat.repos) == 0:
                 return None
 
@@ -221,19 +218,17 @@ class TelegramBot(object):
 
     async def edit_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /editlist is issued."""
-        if self._get_chat_id(update):
-            user = update.effective_chat
-
-            keyboard = self.get_repo_keyboard(user, 0)
+        if chat_id := self._get_chat_id(update):
+            keyboard = self.get_repo_keyboard(chat_id, 0)
             if keyboard:
                 await update.message.reply_text("Here's all your added repos with their releases:",
                                                 reply_markup=keyboard)
             else:
                 await update.message.reply_text("You are haven't repos yet.")
 
-    async def add_repo(self, user, repo, bot, silent=False) -> None:
+    async def add_repo(self, chat_id, repo, bot, silent=False) -> None:
         with self.app.app_context():
-            chat = get_or_create_chat(db.session, user)
+            chat = get_or_create_chat(db.session, chat_id)
 
             if self.app.config['MAX_REPOS_PER_CHAT']:
                 if len(chat.repos) >= self.app.config['MAX_REPOS_PER_CHAT']:  # TODO: Use SQL COUNT instead Python len
@@ -303,14 +298,13 @@ class TelegramBot(object):
                             prefer_small_media=True)
                     )
 
-    async def add_starred_repos(self, user, github_user, bot) -> None:
+    async def add_starred_repos(self, chat_id, github_user, bot) -> None:
         repos = github_user.get_starred()
         for repo in repos:
-            await self.add_repo(user, repo, bot, True)
+            await self.add_repo(chat_id, repo, bot, True)
 
     async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if self._get_chat_id(update):
-            user = update.effective_chat
+        if chat_id := self._get_chat_id(update):
             query = update.callback_query
 
             # CallbackQueries need to be answered, even if no notification to the user is needed
@@ -321,7 +315,7 @@ class TelegramBot(object):
                 await query.delete_message()
             elif query.data == 'unsubscribe_user':
                 with self.app.app_context():
-                    chat = get_or_create_chat(db.session, user)
+                    chat = get_or_create_chat(db.session, chat_id)
                     github_username = chat.github_username
                     chat.github_username = None
                     db.session.commit()
@@ -336,13 +330,13 @@ class TelegramBot(object):
                     return
 
                 with self.app.app_context():
-                    chat = get_or_create_chat(db.session, user)
+                    chat = get_or_create_chat(db.session, chat_id)
                     chat.github_username = github_user.login
                     db.session.commit()
 
                     await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
 
-                await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
+                await self.add_starred_repos(chat_id, github_user, update.callback_query.get_bot())
             elif query.data.startswith("add_repos-"):
                 github_user_name = query.data.split("-", 1)[1]
                 try:
@@ -351,12 +345,12 @@ class TelegramBot(object):
                     await update.message.reply_text("Error: User not founded.")
                     return
 
-                await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
+                await self.add_starred_repos(chat_id, github_user, update.callback_query.get_bot())
 
                 await query.delete_message()
             elif query.data == "release_note_format":
                 with self.app.app_context():
-                    chat = get_or_create_chat(db.session, user)
+                    chat = get_or_create_chat(db.session, chat_id)
                     keyboard = [[InlineKeyboardButton(f"Quote {"✅" if chat.release_note_format == "quote" else ""}",
                                                       callback_data="release_note_format-quote"),
                                  InlineKeyboardButton(f"Pre {"✅" if chat.release_note_format == "pre" else ""}",
@@ -369,7 +363,7 @@ class TelegramBot(object):
                 await query.edit_message_reply_markup(reply_markup)
             elif query.data.startswith("release_note_format-"):
                 with self.app.app_context():
-                    chat = get_or_create_chat(db.session, user)
+                    chat = get_or_create_chat(db.session, chat_id)
                     if query.data == "release_note_format-quote":
                         chat.release_note_format = "quote"
                     elif query.data == "release_note_format-pre":
@@ -384,18 +378,18 @@ class TelegramBot(object):
                 await query.edit_message_text(text=f"Release note format changed.")
             elif query.data.startswith("next-"):
                 next_page = int(query.data.split("-", 1)[1])
-                keyboard = self.get_repo_keyboard(user, next_page)
+                keyboard = self.get_repo_keyboard(chat_id, next_page)
                 if keyboard:
                     await query.edit_message_reply_markup(keyboard)
             elif query.data.startswith("prev-"):
                 prev_page = int(query.data.split("-", 1)[1])
-                keyboard = self.get_repo_keyboard(user, prev_page)
+                keyboard = self.get_repo_keyboard(chat_id, prev_page)
                 if keyboard:
                     await query.edit_message_reply_markup(keyboard)
             elif query.data.startswith("pre-"):
                 _, curr_page, repo_id = query.data.split("-", 2)
                 with self.app.app_context():
-                    chat = get_or_create_chat(db.session, user)
+                    chat = get_or_create_chat(db.session, chat_id)
                     repo_obj = db.session.get(Repo, repo_id)
                     if not repo_obj:
                         await update.message.reply_text("Error: Repo not founded.")
@@ -412,15 +406,15 @@ class TelegramBot(object):
                     else:
                         reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
 
-                keyboard = self.get_repo_keyboard(user, int(curr_page))
+                keyboard = self.get_repo_keyboard(chat_id, int(curr_page))
                 await query.edit_message_reply_markup(keyboard)
 
-                await update.callback_query.get_bot().send_message(user.id, reply_message)
+                await update.callback_query.get_bot().send_message(chat_id, reply_message)
             elif query.data.startswith("delete-"):
                 _, curr_page, repo_id = query.data.split("-", 2)
                 curr_page = int(curr_page)
                 with self.app.app_context():
-                    chat = get_or_create_chat(db.session, user)
+                    chat = get_or_create_chat(db.session, chat_id)
                     repo_obj = db.session.get(Repo, repo_id)
                     if repo_obj:
                         chat.repos.remove(repo_obj)
@@ -430,25 +424,23 @@ class TelegramBot(object):
                     else:
                         reply_message = "Error: Repo not founded."
 
-                keyboard = self.get_repo_keyboard(user, curr_page)
+                keyboard = self.get_repo_keyboard(chat_id, curr_page)
                 if keyboard:
                     await query.edit_message_reply_markup(keyboard)
                 else:
                     if curr_page > 0:
-                        keyboard = self.get_repo_keyboard(user, curr_page - 1)
+                        keyboard = self.get_repo_keyboard(chat_id, curr_page - 1)
                         await query.edit_message_reply_markup(keyboard)
                     else:
                         await query.edit_message_text(text="You no longer have any repos.")
 
-                await update.callback_query.get_bot().send_message(user.id, reply_message)
+                await update.callback_query.get_bot().send_message(chat_id, reply_message)
 
     async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /starred is issued."""
-        if self._get_chat_id(update):
-            user = update.effective_chat
-
+        if chat_id := self._get_chat_id(update):
             with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
+                chat = get_or_create_chat(db.session, chat_id)
                 if chat.github_username:
                     keyboard = [[InlineKeyboardButton("Unsubscribe from user", callback_data="unsubscribe_user")],
                                 [InlineKeyboardButton("Cancel", callback_data="cancel")]]
@@ -552,9 +544,7 @@ class TelegramBot(object):
 
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo"""
-        if self._get_chat_id(update):
-            user = update.effective_chat
-
+        if chat_id := self._get_chat_id(update):
             if self._is_group(update):
                 text = update.effective_message.text.lower()
                 bot_name = update.message.get_bot().username.lower()
@@ -598,13 +588,11 @@ class TelegramBot(object):
                 await update.message.reply_text("Sorry, I can't find that repo.")
                 return
 
-            await self.add_repo(user, repo, update.get_bot(), False)
+            await self.add_repo(chat_id, repo, update.get_bot(), False)
 
     async def download_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo from uploaded requirements.txt"""
-        if self._get_chat_id(update):
-            user = update.effective_chat
-
+        if chat_id := self._get_chat_id(update):
             if update.message.document.file_size > MAX_UPLOADED_FILE_SIZE:
                 await update.message.reply_text("I can't process too big file.")
                 return
@@ -621,7 +609,7 @@ class TelegramBot(object):
                             print("Github Exception in download_file", e)
                             continue
 
-                        await self.add_repo(user, repo, update.get_bot(), True)
+                        await self.add_repo(chat_id, repo, update.get_bot(), True)
             elif update.message.document.file_name == "package.json":
                 file = await context.bot.get_file(update.message.document)
                 data = await file.download_as_bytearray()
@@ -637,7 +625,7 @@ class TelegramBot(object):
                                 print("Github Exception in download_file", e)
                                 continue
 
-                            await self.add_repo(user, repo, update.get_bot(), True)
+                            await self.add_repo(chat_id, repo, update.get_bot(), True)
             else:
                 await update.message.reply_text("I don't know this file format.")
                 return
