@@ -96,7 +96,7 @@ class TelegramBot(object):
         if not self.app.config['CHAT_ID']:
             return chat_id
         else:
-            if chat_id == self.app.config['CHAT_ID']:
+            if chat_id in self.app.config['CHAT_ID']:
                 return chat_id
         return None
 
