@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone, timedelta
 
 import github
 from telegram.constants import MessageLimit
@@ -67,6 +68,8 @@ def store_latest_release(session, repo, repo_obj):
         if repo.get_releases().totalCount > 0:
             prerelease = repo.get_releases()[0]
             if not prerelease.prerelease or prerelease.draft:
+                prerelease = None
+            if prerelease and datetime.now(timezone.utc) - timedelta(minutes=15) < prerelease.published_at:
                 prerelease = None
 
     try:
