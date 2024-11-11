@@ -92,6 +92,20 @@ class TelegramBot(object):
         self.application.add_handler(MessageHandler(filters.Document.ALL, self.download_file))
         self.application.add_handler(CallbackQueryHandler(self.button))
 
+    def _get_chat_id(self, update: Update):
+        chat_id = update.message.chat_id
+        if not self.app.config['CHAT_ID']:
+            return chat_id
+        else:
+            if chat_id == self.app.config['CHAT_ID']:
+                return chat_id
+        return None
+
+    def _is_group(self, update: Update):
+        if update.effective_chat.type in [TelegramChat.GROUP, TelegramChat.SUPERGROUP]:
+            return True
+        return False
+
     async def set_commands(self, application):
         await application.bot.set_my_commands([('list', "show your subscriptions"),
                                                ('editlist', "show and edit your subscriptions"),
@@ -102,49 +116,53 @@ class TelegramBot(object):
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
-        await update.message.reply_text(
-            "Send a message containing repo for subscribing in one of the following formats: "
-            "owner/repo, https://github.com/owner/repo"
-        )
+        if self._get_chat_id(update):
+            await update.message.reply_text(
+                "Send a message containing repo for subscribing in one of the following formats: "
+                "owner/repo, https://github.com/owner/repo"
+            )
 
     async def about_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /about is issued."""
-        await update.message.reply_text(
-            f"release-bot - a telegram bot for GitHub releases v{__version__}\n"
-            "Source code available at https://github.com/JanisV/release-bot"
-        )
+        if self._get_chat_id(update):
+            await update.message.reply_text(
+                f"release-bot - a telegram bot for GitHub releases v{__version__}\n"
+                "Source code available at https://github.com/JanisV/release-bot"
+            )
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /help is issued."""
-        await update.message.reply_text(
-            "For subscribe to a new GitHub releases send a message containing owner and name of repo (owner/name), "
-            "GitHub/PyPI/npm URL or upload requirements.txt or package.json file.\n\n"
-            "Available commands:\n"
-            "/start - show welcome message\n"
-            "/about - information about this bot\n"
-            "/help - brief usage info\n"
-            "/list - show your subscriptions\n"
-            "/editlist - show and edit your subscriptions\n"
-            "/starred username - subscribe to user's starred repos\n"
-            "/starred - unsubscribe from user's starred repos\n"
-            "/settings - change output format\n"
-            "/stats - basic server statistics"
-        )
+        if self._get_chat_id(update):
+            await update.message.reply_text(
+                "For subscribe to a new GitHub releases send a message containing owner and name of repo (owner/name), "
+                "GitHub/PyPI/npm URL or upload requirements.txt or package.json file.\n\n"
+                "Available commands:\n"
+                "/start - show welcome message\n"
+                "/about - information about this bot\n"
+                "/help - brief usage info\n"
+                "/list - show your subscriptions\n"
+                "/editlist - show and edit your subscriptions\n"
+                "/starred username - subscribe to user's starred repos\n"
+                "/starred - unsubscribe from user's starred repos\n"
+                "/settings - change output format\n"
+                "/stats - basic server statistics"
+            )
 
     async def list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /list is issued."""
-        user = update.effective_chat
+        if self._get_chat_id(update):
+            user = update.effective_chat
 
-        with self.app.app_context():
-            text = "Your subscriptions:\n"
-            chat = get_or_create_chat(db.session, user)
-            for i, repo in enumerate(chat.repos):
-                text += f"{i + 1}. <b><a href='{repo.link}'>{repo.full_name}</a></b>\n"
+            with self.app.app_context():
+                text = "Your subscriptions:\n"
+                chat = get_or_create_chat(db.session, user)
+                for i, repo in enumerate(chat.repos):
+                    text += f"{i + 1}. <b><a href='{repo.link}'>{repo.full_name}</a></b>\n"
 
-        await update.message.reply_html(
-            text,
-            link_preview_options=LinkPreviewOptions(is_disabled=True),
-        )
+            await update.message.reply_html(
+                text,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+            )
 
     def get_repo_keyboard(self, user, curr_page):
         btn_per_line = 4
@@ -203,14 +221,15 @@ class TelegramBot(object):
 
     async def edit_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /editlist is issued."""
-        user = update.effective_chat
+        if self._get_chat_id(update):
+            user = update.effective_chat
 
-        keyboard = self.get_repo_keyboard(user, 0)
-        if keyboard:
-            await update.message.reply_text("Here's all your added repos with their releases:",
-                                            reply_markup=keyboard)
-        else:
-            await update.message.reply_text("You are haven't repos yet.")
+            keyboard = self.get_repo_keyboard(user, 0)
+            if keyboard:
+                await update.message.reply_text("Here's all your added repos with their releases:",
+                                                reply_markup=keyboard)
+            else:
+                await update.message.reply_text("You are haven't repos yet.")
 
     async def add_repo(self, user, repo, bot, silent=False) -> None:
         with self.app.app_context():
@@ -290,197 +309,201 @@ class TelegramBot(object):
             await self.add_repo(user, repo, bot, True)
 
     async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        user = update.effective_chat
-        query = update.callback_query
+        if self._get_chat_id(update):
+            user = update.effective_chat
+            query = update.callback_query
 
-        # CallbackQueries need to be answered, even if no notification to the user is needed
-        # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-        await query.answer()
+            # CallbackQueries need to be answered, even if no notification to the user is needed
+            # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+            await query.answer()
 
-        if query.data == 'cancel':
-            await query.delete_message()
-        elif query.data == 'unsubscribe_user':
-            with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
-                github_username = chat.github_username
-                chat.github_username = None
-                db.session.commit()
-
-                await query.edit_message_text(text=f"Unsubscribed from user {github_username}.")
-        elif query.data.startswith("subscribe_user-"):
-            github_user_name = query.data.split("-", 1)[1]
-            try:
-                github_user = github_obj.get_user(github_user_name)
-            except github.GithubException as e:
-                await update.message.reply_text("Error: User not founded.")
-                return
-
-            with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
-                chat.github_username = github_user.login
-                db.session.commit()
-
-                await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
-
-            await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
-        elif query.data.startswith("add_repos-"):
-            github_user_name = query.data.split("-", 1)[1]
-            try:
-                github_user = github_obj.get_user(github_user_name)
-            except github.GithubException as e:
-                await update.message.reply_text("Error: User not founded.")
-                return
-
-            await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
-
-            await query.delete_message()
-        elif query.data == "release_note_format":
-            with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
-                keyboard = [[InlineKeyboardButton(f"Quote {"✅" if chat.release_note_format == "quote" else ""}",
-                                                  callback_data="release_note_format-quote"),
-                             InlineKeyboardButton(f"Pre {"✅" if chat.release_note_format == "pre" else ""}",
-                                                  callback_data="release_note_format-pre"),
-                             InlineKeyboardButton(f"Markdown {"✅" if not chat.release_note_format else ""}",
-                                                  callback_data="release_note_format-markdown"), ],
-                            [InlineKeyboardButton("Cancel", callback_data="cancel")]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-
-            await query.edit_message_reply_markup(reply_markup)
-        elif query.data.startswith("release_note_format-"):
-            with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
-                if query.data == "release_note_format-quote":
-                    chat.release_note_format = "quote"
-                elif query.data == "release_note_format-pre":
-                    chat.release_note_format = "pre"
-                elif query.data == "release_note_format-markdown":
-                    chat.release_note_format = None
-                else:
-                    await update.message.reply_text("Error: Unknown format.")
-                    return
-                db.session.commit()
-
-            await query.edit_message_text(text=f"Release note format changed.")
-        elif query.data.startswith("next-"):
-            next_page = int(query.data.split("-", 1)[1])
-            keyboard = self.get_repo_keyboard(user, next_page)
-            if keyboard:
-                await query.edit_message_reply_markup(keyboard)
-        elif query.data.startswith("prev-"):
-            prev_page = int(query.data.split("-", 1)[1])
-            keyboard = self.get_repo_keyboard(user, prev_page)
-            if keyboard:
-                await query.edit_message_reply_markup(keyboard)
-        elif query.data.startswith("pre-"):
-            _, curr_page, repo_id = query.data.split("-", 2)
-            with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
-                repo_obj = db.session.get(Repo, repo_id)
-                if not repo_obj:
-                    await update.message.reply_text("Error: Repo not founded.")
-                    return
-
-                chat_repo = db.session.query(ChatRepo) \
-                    .filter(ChatRepo.chat_id == chat.id).filter(ChatRepo.repo_id == repo_obj.id) \
-                    .first()
-                chat_repo.process_pre_releases = not chat_repo.process_pre_releases
-                db.session.commit()
-
-                if chat_repo.process_pre_releases:
-                    reply_message = f"You are subscribed to repo {repo_obj.full_name} pre-releases."
-                else:
-                    reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
-
-            keyboard = self.get_repo_keyboard(user, int(curr_page))
-            await query.edit_message_reply_markup(keyboard)
-
-            await update.callback_query.get_bot().send_message(user.id, reply_message)
-        elif query.data.startswith("delete-"):
-            _, curr_page, repo_id = query.data.split("-", 2)
-            curr_page = int(curr_page)
-            with self.app.app_context():
-                chat = get_or_create_chat(db.session, user)
-                repo_obj = db.session.get(Repo, repo_id)
-                if repo_obj:
-                    chat.repos.remove(repo_obj)
+            if query.data == 'cancel':
+                await query.delete_message()
+            elif query.data == 'unsubscribe_user':
+                with self.app.app_context():
+                    chat = get_or_create_chat(db.session, user)
+                    github_username = chat.github_username
+                    chat.github_username = None
                     db.session.commit()
 
-                    reply_message = f"Deleted repo: {repo_obj.full_name}"
-                else:
-                    reply_message = "Error: Repo not founded."
+                    await query.edit_message_text(text=f"Unsubscribed from user {github_username}.")
+            elif query.data.startswith("subscribe_user-"):
+                github_user_name = query.data.split("-", 1)[1]
+                try:
+                    github_user = github_obj.get_user(github_user_name)
+                except github.GithubException as e:
+                    await update.message.reply_text("Error: User not founded.")
+                    return
 
-            keyboard = self.get_repo_keyboard(user, curr_page)
-            if keyboard:
+                with self.app.app_context():
+                    chat = get_or_create_chat(db.session, user)
+                    chat.github_username = github_user.login
+                    db.session.commit()
+
+                    await query.edit_message_text(text=f"Subscribed to user {github_user.login} starred repos.")
+
+                await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
+            elif query.data.startswith("add_repos-"):
+                github_user_name = query.data.split("-", 1)[1]
+                try:
+                    github_user = github_obj.get_user(github_user_name)
+                except github.GithubException as e:
+                    await update.message.reply_text("Error: User not founded.")
+                    return
+
+                await self.add_starred_repos(user, github_user, update.callback_query.get_bot())
+
+                await query.delete_message()
+            elif query.data == "release_note_format":
+                with self.app.app_context():
+                    chat = get_or_create_chat(db.session, user)
+                    keyboard = [[InlineKeyboardButton(f"Quote {"✅" if chat.release_note_format == "quote" else ""}",
+                                                      callback_data="release_note_format-quote"),
+                                 InlineKeyboardButton(f"Pre {"✅" if chat.release_note_format == "pre" else ""}",
+                                                      callback_data="release_note_format-pre"),
+                                 InlineKeyboardButton(f"Markdown {"✅" if not chat.release_note_format else ""}",
+                                                      callback_data="release_note_format-markdown"), ],
+                                [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+
+                await query.edit_message_reply_markup(reply_markup)
+            elif query.data.startswith("release_note_format-"):
+                with self.app.app_context():
+                    chat = get_or_create_chat(db.session, user)
+                    if query.data == "release_note_format-quote":
+                        chat.release_note_format = "quote"
+                    elif query.data == "release_note_format-pre":
+                        chat.release_note_format = "pre"
+                    elif query.data == "release_note_format-markdown":
+                        chat.release_note_format = None
+                    else:
+                        await update.message.reply_text("Error: Unknown format.")
+                        return
+                    db.session.commit()
+
+                await query.edit_message_text(text=f"Release note format changed.")
+            elif query.data.startswith("next-"):
+                next_page = int(query.data.split("-", 1)[1])
+                keyboard = self.get_repo_keyboard(user, next_page)
+                if keyboard:
+                    await query.edit_message_reply_markup(keyboard)
+            elif query.data.startswith("prev-"):
+                prev_page = int(query.data.split("-", 1)[1])
+                keyboard = self.get_repo_keyboard(user, prev_page)
+                if keyboard:
+                    await query.edit_message_reply_markup(keyboard)
+            elif query.data.startswith("pre-"):
+                _, curr_page, repo_id = query.data.split("-", 2)
+                with self.app.app_context():
+                    chat = get_or_create_chat(db.session, user)
+                    repo_obj = db.session.get(Repo, repo_id)
+                    if not repo_obj:
+                        await update.message.reply_text("Error: Repo not founded.")
+                        return
+
+                    chat_repo = db.session.query(ChatRepo) \
+                        .filter(ChatRepo.chat_id == chat.id).filter(ChatRepo.repo_id == repo_obj.id) \
+                        .first()
+                    chat_repo.process_pre_releases = not chat_repo.process_pre_releases
+                    db.session.commit()
+
+                    if chat_repo.process_pre_releases:
+                        reply_message = f"You are subscribed to repo {repo_obj.full_name} pre-releases."
+                    else:
+                        reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
+
+                keyboard = self.get_repo_keyboard(user, int(curr_page))
                 await query.edit_message_reply_markup(keyboard)
-            else:
-                if curr_page > 0:
-                    keyboard = self.get_repo_keyboard(user, curr_page - 1)
+
+                await update.callback_query.get_bot().send_message(user.id, reply_message)
+            elif query.data.startswith("delete-"):
+                _, curr_page, repo_id = query.data.split("-", 2)
+                curr_page = int(curr_page)
+                with self.app.app_context():
+                    chat = get_or_create_chat(db.session, user)
+                    repo_obj = db.session.get(Repo, repo_id)
+                    if repo_obj:
+                        chat.repos.remove(repo_obj)
+                        db.session.commit()
+
+                        reply_message = f"Deleted repo: {repo_obj.full_name}"
+                    else:
+                        reply_message = "Error: Repo not founded."
+
+                keyboard = self.get_repo_keyboard(user, curr_page)
+                if keyboard:
                     await query.edit_message_reply_markup(keyboard)
                 else:
-                    await query.edit_message_text(text="You no longer have any repos.")
+                    if curr_page > 0:
+                        keyboard = self.get_repo_keyboard(user, curr_page - 1)
+                        await query.edit_message_reply_markup(keyboard)
+                    else:
+                        await query.edit_message_text(text="You no longer have any repos.")
 
-            await update.callback_query.get_bot().send_message(user.id, reply_message)
+                await update.callback_query.get_bot().send_message(user.id, reply_message)
 
     async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /starred is issued."""
-        user = update.effective_chat
+        if self._get_chat_id(update):
+            user = update.effective_chat
 
-        with self.app.app_context():
-            chat = get_or_create_chat(db.session, user)
-            if chat.github_username:
-                keyboard = [[InlineKeyboardButton("Unsubscribe from user", callback_data="unsubscribe_user")],
-                            [InlineKeyboardButton("Cancel", callback_data="cancel")]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
+            with self.app.app_context():
+                chat = get_or_create_chat(db.session, user)
+                if chat.github_username:
+                    keyboard = [[InlineKeyboardButton("Unsubscribe from user", callback_data="unsubscribe_user")],
+                                [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
 
-                await update.message.reply_text(f"You are already subscribe to the user {chat.github_username}.\n"
-                                                "Unsubscribe now?",
-                                                reply_markup=reply_markup)
+                    await update.message.reply_text(f"You are already subscribe to the user {chat.github_username}.\n"
+                                                    "Unsubscribe now?",
+                                                    reply_markup=reply_markup)
+                    return
+
+            if not context.args or len(context.args) > 1:
+                await update.message.reply_text("Specify a GitHub username in the following format: /starred username")
                 return
 
-        if not context.args or len(context.args) > 1:
-            await update.message.reply_text("Specify a GitHub username in the following format: /starred username")
-            return
+            github_user_name = context.args[0]
+            try:
+                github_user = github_obj.get_user(github_user_name)
+            except github.GithubException as e:
+                await update.message.reply_text("Sorry, I can't find that user.")
+                return
 
-        github_user_name = context.args[0]
-        try:
-            github_user = github_obj.get_user(github_user_name)
-        except github.GithubException as e:
-            await update.message.reply_text("Sorry, I can't find that user.")
-            return
+            starred = github_user.get_starred()
 
-        starred = github_user.get_starred()
+            keyboard = [[InlineKeyboardButton("Subscribe user", callback_data=f"subscribe_user-{github_user_name}")],
+                        [InlineKeyboardButton("Add user's repos", callback_data=f"add_repos-{github_user_name}")],
+                        [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
 
-        keyboard = [[InlineKeyboardButton("Subscribe user", callback_data=f"subscribe_user-{github_user_name}")],
-                    [InlineKeyboardButton("Add user's repos", callback_data=f"add_repos-{github_user_name}")],
-                    [InlineKeyboardButton("Cancel", callback_data="cancel")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text(f"User {github_user_name} has {starred.totalCount} starred repos. "
-                                        "Subscribe to the user or add user's repos once?",
-                                        reply_markup=reply_markup)
+            await update.message.reply_text(f"User {github_user_name} has {starred.totalCount} starred repos. "
+                                            "Subscribe to the user or add user's repos once?",
+                                            reply_markup=reply_markup)
 
     async def settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /settings is issued."""
-        keyboard = [[InlineKeyboardButton("Release note format", callback_data="release_note_format")],
-                    [InlineKeyboardButton("Cancel", callback_data="cancel")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        if self._get_chat_id(update):
+            keyboard = [[InlineKeyboardButton("Release note format", callback_data="release_note_format")],
+                        [InlineKeyboardButton("Cancel", callback_data="cancel")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.message.reply_text(f"Settings",
-                                        reply_markup=reply_markup)
+            await update.message.reply_text(f"Settings",
+                                            reply_markup=reply_markup)
 
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /stats is issued."""
-        with (self.app.app_context()):
-            release_count = db.session.query(Release).count()
-            repo_count = db.session.query(Repo).count()
-            user_count = db.session.query(Chat).count()
-            subscription_count = db.session.query(ChatRepo).count()
+        if self._get_chat_id(update):
+            with (self.app.app_context()):
+                release_count = db.session.query(Release).count()
+                repo_count = db.session.query(Repo).count()
+                user_count = db.session.query(Chat).count()
+                subscription_count = db.session.query(ChatRepo).count()
 
-            text = (f"I have to update {release_count} releases for {repo_count} repos via {subscription_count} "
-                    f"subscriptions added by {user_count} users.")
+                text = (f"I have to update {release_count} releases for {repo_count} repos via {subscription_count} "
+                        f"subscriptions added by {user_count} users.")
 
-        await update.message.reply_text(text)
+            await update.message.reply_text(text)
 
     def _pypi2github(self, project_name):
         resp = urllib3.request("GET", f"https://pypi.org/pypi/{project_name}/json")
@@ -527,89 +550,70 @@ class TelegramBot(object):
 
         return resp.status, repo_name
 
-    def _is_group(self, update: Update):
-        if update.effective_chat.type in [TelegramChat.GROUP, TelegramChat.SUPERGROUP]:
-            return True
-        return False
-
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo"""
-        user = update.effective_chat
+        if self._get_chat_id(update):
+            user = update.effective_chat
 
-        if self._is_group(update):
-            text = update.effective_message.text.lower()
-            bot_name = update.message.get_bot().username.lower()
-            if not text.startswith(f"@{bot_name}"):
-                return
-
-        if pypi_link_pattern.search(update.message.text):
-            link_groups = pypi_link_pattern.search(update.message.text)
-            project = link_groups.group(1)
-            status, repo_name = self._pypi2github(project)
-            if status == 200:
-                if not repo_name:
-                    await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
+            if self._is_group(update):
+                text = update.effective_message.text.lower()
+                bot_name = update.message.get_bot().username.lower()
+                if not text.startswith(f"@{bot_name}"):
                     return
+
+            if pypi_link_pattern.search(update.message.text):
+                link_groups = pypi_link_pattern.search(update.message.text)
+                project = link_groups.group(1)
+                status, repo_name = self._pypi2github(project)
+                if status == 200:
+                    if not repo_name:
+                        await update.message.reply_text(f"Project {project} has not link to GitHub repository.")
+                        return
+                else:
+                    await update.message.reply_text("Error: Invalid repo.")
+                    return
+            elif npm_link_pattern.search(update.message.text):
+                link_groups = npm_link_pattern.search(update.message.text)
+                package_name = link_groups.group(1)
+                status, repo_name = self._npm2github(package_name)
+                if status == 200:
+                    if not repo_name:
+                        await update.message.reply_text(f"Project {package_name} has not link to GitHub repository.")
+                        return
+                else:
+                    await update.message.reply_text("Error: Invalid repo.")
+                    return
+            elif github_link_pattern.search(update.message.text):
+                link_groups = github_link_pattern.search(update.message.text)
+                repo_name = link_groups.group(1)
+            elif direct_pattern.search(update.message.text):
+                repo_name = update.message.text
             else:
                 await update.message.reply_text("Error: Invalid repo.")
                 return
-        elif npm_link_pattern.search(update.message.text):
-            link_groups = npm_link_pattern.search(update.message.text)
-            package_name = link_groups.group(1)
-            status, repo_name = self._npm2github(package_name)
-            if status == 200:
-                if not repo_name:
-                    await update.message.reply_text(f"Project {package_name} has not link to GitHub repository.")
-                    return
-            else:
-                await update.message.reply_text("Error: Invalid repo.")
+
+            try:
+                repo = github_obj.get_repo(repo_name)
+            except github.GithubException as e:
+                await update.message.reply_text("Sorry, I can't find that repo.")
                 return
-        elif github_link_pattern.search(update.message.text):
-            link_groups = github_link_pattern.search(update.message.text)
-            repo_name = link_groups.group(1)
-        elif direct_pattern.search(update.message.text):
-            repo_name = update.message.text
-        else:
-            await update.message.reply_text("Error: Invalid repo.")
-            return
 
-        try:
-            repo = github_obj.get_repo(repo_name)
-        except github.GithubException as e:
-            await update.message.reply_text("Sorry, I can't find that repo.")
-            return
-
-        await self.add_repo(user, repo, update.get_bot(), False)
+            await self.add_repo(user, repo, update.get_bot(), False)
 
     async def download_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo from uploaded requirements.txt"""
-        user = update.effective_chat
+        if self._get_chat_id(update):
+            user = update.effective_chat
 
-        if update.message.document.file_size > MAX_UPLOADED_FILE_SIZE:
-            await update.message.reply_text("I can't process too big file.")
-            return
-        if update.message.document.file_name == "requirements.txt":
-            file = await context.bot.get_file(update.message.document)
-            data = await file.download_as_bytearray()
-            decoded_string = data.decode("utf-8", errors='replace')
-            for req in requirements.parse(decoded_string):
-                status, repo_name = self._pypi2github(req.name)
-                if status == 200 and repo_name:
-                    try:
-                        repo = github_obj.get_repo(repo_name)
-                    except github.GithubException as e:
-                        print("Github Exception in download_file", e)
-                        continue
-
-                    await self.add_repo(user, repo, update.get_bot(), True)
-        elif update.message.document.file_name == "package.json":
-            file = await context.bot.get_file(update.message.document)
-            data = await file.download_as_bytearray()
-            decoded_string = data.decode("utf-8", errors='replace')
-            json_data = json.loads(decoded_string)
-            if "dependencies" in json_data:
-                for package in json_data["dependencies"].keys():
-                    status, repo_name = self._npm2github(package)
+            if update.message.document.file_size > MAX_UPLOADED_FILE_SIZE:
+                await update.message.reply_text("I can't process too big file.")
+                return
+            if update.message.document.file_name == "requirements.txt":
+                file = await context.bot.get_file(update.message.document)
+                data = await file.download_as_bytearray()
+                decoded_string = data.decode("utf-8", errors='replace')
+                for req in requirements.parse(decoded_string):
+                    status, repo_name = self._pypi2github(req.name)
                     if status == 200 and repo_name:
                         try:
                             repo = github_obj.get_repo(repo_name)
@@ -618,19 +622,36 @@ class TelegramBot(object):
                             continue
 
                         await self.add_repo(user, repo, update.get_bot(), True)
-        else:
-            await update.message.reply_text("I don't know this file format.")
-            return
+            elif update.message.document.file_name == "package.json":
+                file = await context.bot.get_file(update.message.document)
+                data = await file.download_as_bytearray()
+                decoded_string = data.decode("utf-8", errors='replace')
+                json_data = json.loads(decoded_string)
+                if "dependencies" in json_data:
+                    for package in json_data["dependencies"].keys():
+                        status, repo_name = self._npm2github(package)
+                        if status == 200 and repo_name:
+                            try:
+                                repo = github_obj.get_repo(repo_name)
+                            except github.GithubException as e:
+                                print("Github Exception in download_file", e)
+                                continue
 
-    async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if self._is_group(update):
-            text = update.effective_message.text.lower()
-            bot_name = update.message.get_bot().username.lower()
-            if len(text) > 2 and "@" in text[1:] and f"@{bot_name}" not in text:
+                            await self.add_repo(user, repo, update.get_bot(), True)
+            else:
+                await update.message.reply_text("I don't know this file format.")
                 return
 
-        await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
-        await self.start_command(update, context)
+    async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if self._get_chat_id(update):
+            if self._is_group(update):
+                text = update.effective_message.text.lower()
+                bot_name = update.message.get_bot().username.lower()
+                if len(text) > 2 and "@" in text[1:] and f"@{bot_name}" not in text:
+                    return
+
+            await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
+            await self.start_command(update, context)
 
     async def get_me(self, *args, **kwargs):
         async with self.application.bot:
