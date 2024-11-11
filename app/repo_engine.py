@@ -37,26 +37,23 @@ def format_release_message(chat, repo, release):
         release_title = release.title
 
     if chat.release_note_format == "quote":
-        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                   f"<b>{release_title}</b>"
-                   f" <code>{current_tag}</code>"
+        message = (f"<b>{repo.full_name}</b>\n"
+                   f"{f"<code>{release_title}</code>" if release_title else ""}"
+                   f" <a href='{release.html_url}'>{current_tag}</a>"
                    f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                   f"<blockquote>{release_body}</blockquote>"
-                   f"<a href='{release.html_url}'>release note...</a>")
+                   f"<blockquote>{release_body}</blockquote>")
     elif chat.release_note_format == "pre":
-        message = (f"<a href='{repo.html_url}'>{repo.full_name}</a>:\n"
-                   f"<b>{release_title}</b>"
-                   f" <code>{current_tag}</code>"
+        message = (f"<b>{repo.full_name}</b>\n"
+                   f"{f"<code>{release_title}</code>" if release_title else ""}"
+                   f" <a href='{release.html_url}'>{current_tag}</a>"
                    f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
-                   f"<pre>{release_body}</pre>"
-                   f"<a href='{release.html_url}'>release note...</a>")
+                   f"<pre>{release_body}</pre>")
     else:
-        message = markdownify(f"[{repo.full_name}]({repo.html_url})\n"
-                              f"{f"*{release_title}*" if release_title else ""}"
-                              f" `{current_tag}`"
+        message = markdownify(f"*{repo.full_name}*\n"
+                              f"{f"`{release_title}`" if release_title else ""}"
+                              f" [{current_tag}]({release.html_url})"
                               f"{" _pre-release_" if release.prerelease else ""}\n\n"
-                              f"{release_body + "\n\n" if release_body else ""}"
-                              f"[release note...]({release.html_url})")
+                              f"{release_body}")
 
     return message
 

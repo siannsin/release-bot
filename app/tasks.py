@@ -4,6 +4,7 @@ import github
 import telegram
 from github.GitRelease import GitRelease
 from github.Tag import Tag
+from telegram import LinkPreviewOptions
 from telegram.constants import ParseMode
 
 from app import models
@@ -38,12 +39,16 @@ def poll_github():
                 continue
 
             if repo.archived and not repo_obj.archived:
-                message = f"GitHub repo {repo_obj.full_name} has been archived"
+                message = f"GitHub repo <b>{repo_obj.full_name}</b> has been archived"
                 for chat in repo_obj.chats:
                     try:
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
-                                                              disable_web_page_preview=True))
+                                                              parse_mode=ParseMode.HTML,
+                                                              link_preview_options=LinkPreviewOptions(
+                                                                  url=repo_obj.link,
+                                                                  prefer_small_media=True)
+                                                              ))
                     except telegram.error.Forbidden as e:
                         pass
 
@@ -70,7 +75,10 @@ def poll_github():
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
                                                               parse_mode=parse_mode,
-                                                              disable_web_page_preview=True))
+                                                              link_preview_options=LinkPreviewOptions(
+                                                                  url=repo_obj.link,
+                                                                  prefer_small_media=True)
+                                                              ))
                     except telegram.error.Forbidden as e:
                         scheduler.app.logger.info('Bot was blocked by the user')
                         db.session.delete(chat)
@@ -87,7 +95,10 @@ def poll_github():
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
                                                               parse_mode=ParseMode.HTML,
-                                                              disable_web_page_preview=True))
+                                                              link_preview_options=LinkPreviewOptions(
+                                                                  url=repo_obj.link,
+                                                                  prefer_small_media=True)
+                                                              ))
                     except telegram.error.Forbidden as e:
                         scheduler.app.logger.info('Bot was blocked by the user')
                         db.session.delete(chat)
@@ -113,7 +124,10 @@ def poll_github():
                         asyncio.run(telegram_bot.send_message(chat_id=chat.id,
                                                               text=message,
                                                               parse_mode=parse_mode,
-                                                              disable_web_page_preview=True))
+                                                              link_preview_options=LinkPreviewOptions(
+                                                                  url=repo_obj.link,
+                                                                  prefer_small_media=True)
+                                                              ))
                     except telegram.error.Forbidden as e:
                         scheduler.app.logger.info('Bot was blocked by the user')
                         db.session.delete(chat)

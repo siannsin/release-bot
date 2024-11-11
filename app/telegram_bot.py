@@ -258,7 +258,7 @@ class TelegramBot(object):
                 if not silent:
                     await bot.send_message(
                         chat_id=chat.id,
-                        text=f"GitHub repo <a href='{repo.html_url}'>{repo.full_name}</a> has already been added.",
+                        text=f"GitHub repo <b>{repo.full_name}</b> has already been added.",
                         parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
                             url=repo.html_url,
@@ -271,7 +271,7 @@ class TelegramBot(object):
                 if repo_obj.archived:
                     await bot.send_message(
                         chat_id=chat.id,
-                        text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
+                        text=f"Added GitHub repo: <b>{repo.full_name}</b>, "
                              f"but it is archived",
                         parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
@@ -281,7 +281,7 @@ class TelegramBot(object):
                 elif repo_obj.get_latest_release():
                     await bot.send_message(
                         chat_id=chat.id,
-                        text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>",
+                        text=f"Added GitHub repo: <b>{repo.full_name}</b>",
                         parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
                             url=repo.html_url,
@@ -290,7 +290,7 @@ class TelegramBot(object):
                 else:
                     await bot.send_message(
                         chat_id=chat.id,
-                        text=f"Added GitHub repo: <a href='{repo.html_url}'>{repo.full_name}</a>, "
+                        text=f"Added GitHub repo: <b>{repo.full_name}</b>, "
                              f"but it has not releases",
                         parse_mode=ParseMode.HTML,
                         link_preview_options=LinkPreviewOptions(
@@ -402,14 +402,20 @@ class TelegramBot(object):
                     db.session.commit()
 
                     if chat_repo.process_pre_releases:
-                        reply_message = f"You are subscribed to repo {repo_obj.full_name} pre-releases."
+                        reply_message = f"You are subscribed to repo <b>{repo_obj.full_name}</b> pre-releases."
                     else:
-                        reply_message = f"You are unsubscribed from repo {repo_obj.full_name} pre-releases."
+                        reply_message = f"You are unsubscribed from repo <b>{repo_obj.full_name}</b> pre-releases."
+                    repo_url = repo_obj.link
 
                 keyboard = self.get_repo_keyboard(chat_id, int(curr_page))
                 await query.edit_message_reply_markup(keyboard)
 
-                await update.callback_query.get_bot().send_message(chat_id, reply_message)
+                await update.callback_query.get_bot().send_message(chat_id, reply_message,
+                                                                   parse_mode=ParseMode.HTML,
+                                                                   link_preview_options=LinkPreviewOptions(
+                                                                       url=repo_url,
+                                                                       prefer_small_media=True)
+                                                                   )
             elif query.data.startswith("delete-"):
                 _, curr_page, repo_id = query.data.split("-", 2)
                 curr_page = int(curr_page)
@@ -420,9 +426,11 @@ class TelegramBot(object):
                         chat.repos.remove(repo_obj)
                         db.session.commit()
 
-                        reply_message = f"Deleted repo: {repo_obj.full_name}"
+                        reply_message = f"Deleted repo: <b>{repo_obj.full_name}</b>"
+                        repo_url = repo_obj.link
                     else:
                         reply_message = "Error: Repo not founded."
+                        repo_url = ""
 
                 keyboard = self.get_repo_keyboard(chat_id, curr_page)
                 if keyboard:
@@ -434,7 +442,12 @@ class TelegramBot(object):
                     else:
                         await query.edit_message_text(text="You no longer have any repos.")
 
-                await update.callback_query.get_bot().send_message(chat_id, reply_message)
+                await update.callback_query.get_bot().send_message(chat_id, reply_message,
+                                                                   parse_mode=ParseMode.HTML,
+                                                                   link_preview_options=LinkPreviewOptions(
+                                                                       url=repo_url,
+                                                                       prefer_small_media=True)
+                                                                   )
 
     async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /starred is issued."""
