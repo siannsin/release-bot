@@ -3,13 +3,13 @@ import json
 import re
 import threading
 import urllib.parse
-from itertools import batched
 
 import github
 import requirements
 import telegram
 import urllib3
 from sqlalchemy import true
+from telegram import Chat as TelegramChat
 from telegram import Update, LinkPreviewOptions, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import InlineKeyboardMarkupLimit, ParseMode
 from telegram.ext import (
@@ -39,7 +39,7 @@ def get_or_create_chat(session, telegram_user):
     if not chat:
         chat = Chat(
             id=telegram_user.id,
-            lang=telegram_user.language_code,
+            # lang=telegram_user.language_code,
         )
         session.add(chat)
         session.commit()
@@ -133,7 +133,7 @@ class TelegramBot(object):
 
     async def list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /list is issued."""
-        user = update.effective_user
+        user = update.effective_chat
 
         with self.app.app_context():
             text = "Your subscriptions:\n"
@@ -203,7 +203,7 @@ class TelegramBot(object):
 
     async def edit_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /editlist is issued."""
-        user = update.effective_user
+        user = update.effective_chat
 
         keyboard = self.get_repo_keyboard(user, 0)
         if keyboard:
@@ -290,7 +290,7 @@ class TelegramBot(object):
             await self.add_repo(user, repo, bot, True)
 
     async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        user = update.effective_user
+        user = update.effective_chat
         query = update.callback_query
 
         # CallbackQueries need to be answered, even if no notification to the user is needed
@@ -424,7 +424,7 @@ class TelegramBot(object):
 
     async def starred_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /starred is issued."""
-        user = update.effective_user
+        user = update.effective_chat
 
         with self.app.app_context():
             chat = get_or_create_chat(db.session, user)
@@ -527,9 +527,20 @@ class TelegramBot(object):
 
         return resp.status, repo_name
 
+    def _is_group(self, update: Update):
+        if update.effective_chat.type in [TelegramChat.GROUP, TelegramChat.SUPERGROUP]:
+            return True
+        return False
+
     async def message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo"""
-        user = update.effective_user
+        user = update.effective_chat
+
+        if self._is_group(update):
+            text = update.effective_message.text.lower()
+            bot_name = update.message.get_bot().username.lower()
+            if not text.startswith(f"@{bot_name}"):
+                return
 
         if pypi_link_pattern.search(update.message.text):
             link_groups = pypi_link_pattern.search(update.message.text)
@@ -572,7 +583,7 @@ class TelegramBot(object):
 
     async def download_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Add GitHub repo from uploaded requirements.txt"""
-        user = update.effective_user
+        user = update.effective_chat
 
         if update.message.document.file_size > MAX_UPLOADED_FILE_SIZE:
             await update.message.reply_text("I can't process too big file.")
@@ -612,6 +623,12 @@ class TelegramBot(object):
             return
 
     async def unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if self._is_group(update):
+            text = update.effective_message.text.lower()
+            bot_name = update.message.get_bot().username.lower()
+            if len(text) > 2 and "@" in text[1:] and f"@{bot_name}" not in text:
+                return
+
         await update.message.reply_text("Sorry, I don't understand. Please pick one of the valid options.")
         await self.start_command(update, context)
 
