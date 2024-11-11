@@ -10,7 +10,7 @@ This is a Telegram bot that monitors the releases of given repos, sending messag
 
 If you don't need a local installation you can use public bot, avalaible at https://t.me/janisreleasebot.
 
-![2024_10_25_10_17_28_dev_release_bot](https://github.com/user-attachments/assets/7587a21e-72c3-4462-9b19-d321f85c68dc)
+![Screenshot](https://github.com/user-attachments/assets/7587a21e-72c3-4462-9b19-d321f85c68dc)
 
 ## Alternatives
 
@@ -91,9 +91,13 @@ Look at Development section
 
 `SITE_URL` - (optional) URL used for listening for incoming requests from the Telegram servers. When not specified uses polling insted webhooks. More info at [Marvin's Marvellous Guide to All Things Webhook](https://core.telegram.org/bots/webhooks).
 
+`CHAT_ID` - (optional) Only messages from the specified chat ID are accepted. Can be a comma separated list. You can get your chat ID with [@getmyid_bot](https://t.me/getmyid_bot). If not specified, all messages are accepted.
+
 `DATABASE_URI` - (optional) When not specified local SQLite uses.
 
 `MAX_REPOS_PER_CHAT` - (optional) Limit number of repos per user. Default 0 - unlimited.
+
+`LOG_LEVEL` - (optional) Default INFO.
 
 ## Development
 
