@@ -145,7 +145,7 @@ def poll_github_user():
                 continue
 
             try:
-                asyncio.run(telegram_bot.add_starred_repos(chat, github_user, telegram_bot))
+                asyncio.run(telegram_bot.add_starred_repos(chat.id, github_user, telegram_bot))
             except telegram.error.Forbidden as e:
                 scheduler.app.logger.info('Bot was blocked by the user')
                 db.session.delete(chat)
