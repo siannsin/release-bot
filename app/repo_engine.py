@@ -41,19 +41,22 @@ def format_release_message(chat, repo, release):
         message = (f"<b>{repo.full_name}</b>\n"
                    f"{f"<code>{release_title}</code>" if release_title else ""}"
                    f" <a href='{release.html_url}'>{current_tag}</a>"
-                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                   f"{" <i>pre-release</i>" if release.prerelease else ""}"
+                   f"{" <i>updated</i>" if release.updated else ""}\n"
                    f"<blockquote>{release_body}</blockquote>")
     elif chat.release_note_format == "pre":
         message = (f"<b>{repo.full_name}</b>\n"
                    f"{f"<code>{release_title}</code>" if release_title else ""}"
                    f" <a href='{release.html_url}'>{current_tag}</a>"
-                   f"{" <i>pre-release</i>" if release.prerelease else ""}\n"
+                   f"{" <i>pre-release</i>" if release.prerelease else ""}"
+                   f"{" <i>updated</i>" if release.updated else ""}\n"
                    f"<pre>{release_body}</pre>")
     else:
         message = markdownify(f"*{repo.full_name}*\n"
                               f"{f"`{release_title}`" if release_title else ""}"
                               f" [{current_tag}]({release.html_url})"
-                              f"{" _pre-release_" if release.prerelease else ""}\n\n"
+                              f"{" _pre-release_" if release.prerelease else ""}"
+                              f"{" _updated_" if release.updated else ""}\n\n"
                               f"{release_body}")
 
     return message
@@ -83,20 +86,25 @@ def store_latest_release(session, repo, repo_obj):
 
     if release or prerelease:
         if release:
+            release.updated = False
             release_obj = session.query(Release).join(Repo) \
                 .filter(Repo.id == repo_obj.id).filter(Release.release_id == release.id) \
                 .first()
             if release_obj:
-                if release_obj.pre_release:
+                stored_release_date = release_obj.release_date.replace(tzinfo=timezone.utc)
+                if release.last_modified_datetime > stored_release_date:
+                    release_obj.release_date = release.last_modified_datetime
                     release_obj.pre_release = release.prerelease
                     session.commit()
+
+                    release.updated = True
                 else:
                     release = None
             else:
                 release_obj = Release(
                     release_id=release.id,
                     tag_name=release.tag_name,
-                    release_date=release.published_at,
+                    release_date=release.last_modified_datetime,
                     link=release.html_url,
                     pre_release=release.prerelease,
                 )
@@ -104,6 +112,7 @@ def store_latest_release(session, repo, repo_obj):
                 session.commit()
 
         if prerelease:
+            prerelease.updated = False
             release_obj = session.query(Release).join(Repo) \
                 .filter(Repo.id == repo_obj.id).filter(Release.release_id == prerelease.id) \
                 .first()
