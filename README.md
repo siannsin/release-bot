@@ -89,7 +89,7 @@ Look at Development section
 
 `GITHUB_TOKEN` - (optional) GitHub personal access token (classic) or fine-grained personal access token. When not specified working well for about 20 repos. More info at [Rate limits for the REST API](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28).
 
-`SITE_URL` - (optional) URL used for listening for incoming requests from the Telegram servers. When not specified uses polling insted webhooks. More info at [Marvin's Marvellous Guide to All Things Webhook](https://core.telegram.org/bots/webhooks).
+`SITE_URL` - (optional) URL used for listening for incoming requests from the Telegram servers. When not specified uses polling instead webhooks. More info at [Marvin's Marvellous Guide to All Things Webhook](https://core.telegram.org/bots/webhooks).
 
 `CHAT_ID` - (optional) Only messages from the specified chat ID are accepted. Can be a comma separated list. You can get your chat ID with [@getmyid_bot](https://t.me/getmyid_bot). If not specified, all messages are accepted.
 
