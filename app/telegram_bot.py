@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import re
 import threading
 import urllib.parse
@@ -74,6 +75,8 @@ class TelegramBot(object):
             self.init_app(app)
 
     def init_app(self, app):
+        logging.getLogger().setLevel(app.config['LOG_LEVEL'])
+
         self.app = app
 
         self.application = Application.builder().token(self.app.config['TELEGRAM_BOT_TOKEN']).build()
